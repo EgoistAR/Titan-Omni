@@ -30,30 +30,171 @@ local function safeHook(funcName)
     return success
 end
 
--- // 1. BÖLÜM: Bypass/Proxy Mantığı (Yukarıdaki fonksiyonlar burada dursun)
-local function InterceptFireServer(remoteInstance, ...)
-    -- Burada kontrol mantığın...
-    -- Eğer engellemek istersen:
-    -- if remoteInstance.Name == "..." then return end
-    
-    return OriginalFireServer(remoteInstance, ...)
+-- // Voldex SDK & Component Core Interceptor (Executor Özel Sürümü)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
+
+-- Global bir tablo oluşturuyoruz ki 'return' kullanmak zorunda kalmayalım
+if _G.GameSdkMaster then
+    _G.GameSdkMaster = nil -- Eski çalışan kanca varsa temizle
 end
 
--- // 2. BÖLÜM: Hook İşlemi (Metatable'ı ele geçir)
-local mt = getrawmetatable(game)
-setreadonly(mt, false)
-local oldNamecall = mt.__namecall
-mt.__namecall = newcclosure(function(self, ...)
-    local method = getnamecallmethod()
-    if method == "FireServer" and string.find(self.Name, "GameSdk") then
-        return InterceptFireServer(self, ...)
+_G.GameSdkMaster = {
+    LogTelemetry = true,
+    LogPathing = false,
+    FakeDataMode = true
+}
+
+-- Orijinal metatable metodunu yedekle
+local targetVirtualInstance = Instance.new("RemoteEvent")
+local originalFireServer = targetVirtualInstance.FireServer
+local originalNamecall
+
+-- // 1. BÖLÜM: Ağ Trafiği Filtresi (Network Interceptor)
+local rawMetatable = getrawmetatable(game)
+setreadonly(rawMetatable, false)
+
+originalNamecall = rawMetatable.__namecall
+rawMetatable.__namecall = newcclosure(function(self, ...)
+    local callingMethod = getnamecallmethod()
+    local executionArgs = {...}
+    
+    if callingMethod == "FireServer" and typeof(self) == "Instance" and self:IsA("RemoteEvent") then
+        local eventName = self.Name
+        
+        -- Telemetri (İzleme Verileri) Filtresi
+        if string.find(eventName, "GameSdkTelemetry") then
+            if _G.GameSdkMaster.LogTelemetry then
+                warn("[GameSdk-Interceptor] Telemetri paketi yakalandı: " .. eventName)
+            end
+            if _G.GameSdkMaster.FakeDataMode then
+                executionArgs[1] = {} 
+                return originalFireServer(self, unpack(executionArgs))
+            end
+            return
+        end
+        
+        -- Pathing (Konum ve Kamera Takibi) Filtresi
+        if string.find(eventName, "GameSdkPathing") then
+            if _G.GameSdkMaster.LogPathing then
+                print("[GameSdk-Interceptor] Pathing verisi engellendi: " .. eventName)
+            end
+            if _G.GameSdkMaster.FakeDataMode then
+                executionArgs[1] = {
+                    characterPosition = {Vector3.new(0, 10, 0)},
+                    cameraCFrame = {CFrame.new(0, 10, 0)}
+                }
+                return originalFireServer(self, unpack(executionArgs))
+            end
+            return
+        end
     end
-    return oldNamecall(self, ...)
+    
+    return originalNamecall(self, ...)
 end)
 
--- // 3. BÖLÜM: Oyunun kendi fonksiyonlarını tetiklediği yer
--- Buraya dokunmana gerek yok, artık oyunun kendi kodları 
--- "FireServer" dediği an senin kancana takılacak.
+setreadonly(rawMetatable, true)
+
+-- // 2. BÖLÜM: Bileşen Yönetimi Fonksiyonları
+_G.GameSdkMaster.GetActiveComponents = function(tagName)
+    local taggedInstances = CollectionService:GetTagged(tagName)
+    local foundComponents = {}
+    
+    local success, ComponentUtil = pcall(function()
+        return require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Shared"):WaitForChild("Utils"):WaitForChild("ComponentUtil"))
+    end)
+    
+    if success and ComponentUtil then
+        for _, instance in ipairs(taggedInstances) do
+            local comp = ComponentUtil.FindComponentByAncestor(instance, tagName)
+            if comp then
+                table.insert(foundComponents, comp)
+            end
+        end
+    end
+    return foundComponents
+end
+
+_G.GameSdkMaster.ForceToggleUI = function()
+    for _, screenGui in ipairs(game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):GetChildren()) do
+        local settingsFrame = screenGui:FindFirstChild("Settings", true) or screenGui:FindFirstChild("SettingFrame", true)
+        if settingsFrame then
+            for _, child in ipairs(settingsFrame:GetChildren()) do
+                if child:IsA("Frame") then
+                    child.Visible = not child.Visible
+                end
+            end
+        end
+    end
+end
+
+-- // Merkezi UI ve Arayüz Yönetim Betiği (Tek Parça)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local NoResetGUIHandler = PlayerGui:WaitForChild("NoResetGUIHandler")
+
+-- Projede yer alan tüm hedef arayüz pencerelerinin listesi
+local interfaceList = {
+"LaptopOn", "LaptopConnected", "LaptopNumbers", "CrystalBladeHunt", "BlackBlockHunt", "AgencyMember", "Assault", "GunType", "Silencer", "Flashlight", "GlockBrown", "GunType", "Silencer", "Flashlight", "ShotGun", "GunType", "Silencer", "Flashlight", "Sniper", "GunType", "Silencer", "Flashlight", "Glock", "GunType", "Silencer", "Flashlight", "M4A1", "Scar", "Uzi", "45Cal", "AK", "HoneyBadger", "SR25", "Vector", "P90", "UziPink", "M4A1Purple", "VectorGreen", "45CalBluePink", "Tech9", "Mp412", "De50", "45CalBlue", "Luger", "LugerPurple", "45CalBrown", "45CalBluePinkBrown", "Tech9Brown", "Mp412Brown", "De50Brown", "45CalBlueBrown", "StockAssault", "LugerPurpleBrown", "SPAS", "SPASOpen", "SPASPink", "ShotP", "ShotPBlue", "L96", "M107", "R12", "L96Blue", "M107Purple", "R12Red", "L96Pink", "LugerBrown", "StockGlock", "StockGlockBrown", "StockShotgun", "StockSniper", "CarSeat", "AgencyBunkerPassword", "AllPassesFetched", "AvatarBackpack", "AvatarFront", "AvatarGlasses", "AvatarHair", "AvatarHat", "AvatarNeck", "AvatarPantsID", "AvatarShirtID", "AvatarShoulder", "AvatarWaist", "BikeBMXColor", "BikeGirlColor", "BoatColorHouseBoat", "TurboNumber", "BoatColorMilitaryBoat", "TurboNumber", "BoatColorMilitaryBoatFree", "TurboNumber", "BoatColorPirateBoat", "TurboNumber", "BoatColorPirateFreeBoat", "TurboNumber", "BoatColorPoliceBoat", "TurboNumber", "BoatColorPoliceBoatChangeable", "TurboNumber", "BoatColorRaceBoat", "TurboNumber", "BoatColorSailBoat", "TurboNumber", "BoatColorSailBoatFree", "TurboNumber", "BoatColorShark", "TurboNumber", "BoatColorSharkPass", "TurboNumber", "BoatColorSpeedBoat", "TurboNumber", "BoatColorSpeedBoatFree", "TurboNumber", "BoatColorWaveRunner1Boat", "TurboNumber", "BoatColorWaveRunner2Boat", "TurboNumber", "BoatColorWaveRunnerBoat", "TurboNumber", "BoatColorYacht", "TurboNumber", "RobuxPass", "CarChallengerCopNumber", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColor350Z", "VehicleHeightNumber", "WheelNumber", "TurboNumber", "CarColor4DoorJeep", "TopONOFF", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColor55Chevy", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColor67FordTruck", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorAmbulance", "TurboNumber", "VehicleHeightNumber", "WheelNumber", "CarColorArmoredTruck", "FoodBodyNumber", "TurboNumber", "CarColorBaja", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorBatMobile", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorBeetle", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorBenz", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorBugatti", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorBuggy", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorBullDozer", "TurboNumber", "CarColorBus", "TurboNumber", "VehicleHeightNumber", "WheelNumber", "CarColorCadillac", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorChallenger", "VehicleHeightNumber", "WheelNumber", "TurboNumber", "CarColorChevelle", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorContinental", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorCyberTruck", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorDragBike", "TurboNumber", "CarColorEasterBig", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "EggBodyNumber", "CarColorEasterBigOld", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorEasterBunny", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorEasterMedium", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "EggBodyNumber", "CarColorEasterMediumOld", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorEasterMiniOld", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorEasterSmall", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorEasterSmallOld", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorEscalade", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorExcavator", "TurboNumber", "CarColorFarmTruck", "VehicleHeightNumber", "WheelNumber", "TurboNumber", "FarmBodyNumber", "CarColorFerrari", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorFireTruck", "TurboNumber", "VehicleHeightNumber", "WheelNumber", "CarColorFoodTruck", "FoodTruckNameColor", "FoodTruckName", "FoodBodyNumber", "TurboNumber", "VehicleHeightNumber", "WheelNumber", "CarColorFord4x4Truck", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorFordFairlane", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorFordGT", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorForkLift", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "ForkLiftBodyNumber", "CarColorFormula1", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorGarbageTruck", "TurboNumber", "VehicleHeightNumber", "WheelNumber", "CarColorGhostBusters", "VehicleHeightNumber", "WheelNumber", "TurboNumber", "CarColorGoKart", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorGoKartPremium", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorGoKartVPass", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColor2", "CarColorGolfCart", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorGolfCartElectric2", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorGolfCartElectric4", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorHalloweenBatMobile", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorHalloweenGreenTruck", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorHalloweenHerse", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorHalloweenOrangeCar", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorHalloweenPumkin", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorHalloweenPurpleCar", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorHalloweenScaryPumkin", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorHalloweenSkull", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorHarleyDavison", "TurboNumber", "CarColorHearse", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorHighwayPatrol", "TurboNumber", "CarColorHummer", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorHummerLimo", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorJeep", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorKawazaki", "TurboNumber", "CarColorLambo", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorLamboego", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorLamborgini", "VehicleHeightNumber", "WheelNumber", "TurboNumber", "CarColorLimo", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorMedium", "WheelNumber", "VehicleHeightNumber", "CarColorMilitaryTruck", "MilitaryTruckName", "MilitaryTruckNameColor", "TurboNumber", "VehicleHeightNumber", "WheelNumber", "CarColorMiniCooper", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorModelT", "VehicleHeightNumber", "WheelNumber", "TurboNumber", "CarColorMoonBuggy", "TurboNumber", "VehicleHeightNumber", "WheelNumber", "CarColorNPHarleyDavison", "TurboNumber", "CarColorNascarPremium", "NascarPremiumName", "NascarPremiumNameColor", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorNascarTruck", "NascarTruckName", "NascarTruckNameColor", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorOldLambo", "VehicleHeightNumber", "WheelNumber", "TurboNumber", "CarColorOldy", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorP50", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorPartyBike", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorPoliceMotorCycle", "TurboNumber", "CarColorQuad", "TurboNumber", "CarColorQuadStock", "TurboNumber", "CarColorRV", "RVColor", "RVName", "TurboNumber", "VehicleHeightNumber", "WheelNumber", "CarColorRaptor", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorRaptorMonster", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorRoadster", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorRoblox", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorRollsRoyce", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorRollsSUV", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorSUVFire", "VehicleHeightNumber", "WheelNumber", "TurboNumber", "CarColorSWAT", "VehicleHeightNumber", "WheelNumber", "TurboNumber", "CarColorSchoolBus", "BusBodyNumber", "TurboNumber", "VehicleHeightNumber", "WheelNumber", "CarColorScooter", "TurboNumber", "CarColorSemi", "TurboNumber", "CarColorSkyline", "VehicleHeightNumber", "WheelNumber", "TurboNumber", "CarColorSmartCar", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorSnowmobile", "TurboNumber", "CarColorSnowmobileStock", "TurboNumber", "CarColorSnowplow", "TurboNumber", "VehicleHeightNumber", "WheelNumber", "CarColorStationWagon", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorStreetSweeper", "TurboNumber", "CarColorStudentDriver", "StudentDriverName", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorSuperCar", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorSwanCar", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorTank", "TurboNumber", "CarColorTankPremium", "TurboNumber", "CarColorTaxi", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CarColorTowTruck", "TurboNumber", "VehicleHeightNumber", "WheelNumber", "CarColorTractor", "VehicleHeightNumber", "WheelNumber", "TurboNumber", "CarColorTractorTrailer", "SemiNameColor", "SemiName", "Trailer", "TurboNumber", "CarColorTractorTrailerPass", "SemiNameColor", "SemiName", "Trailer", "TurboNumber", "CarColorVWBus", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorVan", "VanNameColor", "VanName", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "FoodBodyNumber", "CarColorWhillies", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorZZTop", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarLamboCopNumber", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarLamborginiCopNumber", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarMailTruckNumber", "TurboNumber", "VehicleHeightNumber", "WheelNumber", "CarOldHummerNumber", "VehicleHeightNumber", "WheelNumber", "TurboNumber", "CarSUVCopNumber", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarSUVTruckNumber", "TurboNumber", "WheelNumber", "VehicleHeightNumber", "CargoBike", "Client2Client", "ColorSpeedPassLower", "CarColorMotorcycleSidecar", "TurboNumber", "EmmitersName", "EmitterEquipped", "CarColorEaster2025SolidEggMotorcycle", "TurboNumber", "CarColorEaster2025SolidMonsterTruck", "TurboNumber", "VehicleHeightNumber", "WheelNumber", "FollowCharacterName", "FoodStand", "HorsePass", "HorseBodyColor", "HorseHairColor", "HorseSaddleColor", "HorseTexture", "HorseName", "HorseNameColor", "FreeBlackHorse", "FreeBrownHorse", "HorseSpeed", "HouseBuilt", "HouseNumber", "HouseOwn", "Job", "JobTitlePic", "JobOrStudent", "JobName", "OwnedLocker", "KidsBikeBMXColor", "LockUnlockVehicles", "CarColorEaster2025EasterEggMotorcycle", "TurboNumber", "MusicPass", "CurrentSong", "CarColorEaster2025EasterMonsterTruck", "TurboNumber", "VehicleHeightNumber", "WheelNumber", "PlayerHouseStructure", "PlayerOriginalCharacter", "PosEx", "PowerStation", "PrivateServer", "PropCategory", "PropGamepass", "PropName", "PropOnProp", "VehicleSpeed", "RPBio", "RPBioColor", "RPFollowColor", "RPFollowName", "RPName", "RPNameColor", "SilverPass", "VIP", "ColorNameNumber", "SpeedPassNoMotorVehicle", "TandemBike", "Theme", "VehicleDriftNumber", "CarColorSummerBumperCar", "TurboNumber", "VehicleHeightNumber", "WheelNumber", "CarColorSummer2025BumperCar", "TurboNumber", "VehicleHeightNumber", "WheelNumber", "CarColorBumperCarTemplate", "TurboNumber", "VehicleHeightNumber", "WheelNumber", "UnicycleColor", "PogoStickColor", "CarColor3WheelRacer", "VehicleHeightNumber", "TurboNumber", "CarColorJDMCoupe", "VehicleHeightNumber", "WheelNumber", "TurboNumber", "PropFilter", "BabyWalker", "VehicleHeightNumber", "WheelNumber", "TurboNumber", "BikeOzianColor", "Sled", "VehicleHeightNumber", "WheelNumber", "TurboNumber", "CarColorOffRoadSUV", "WheelNumber", "VehicleHeightNumber", "TurboNumber", "CarColorEaster2026CarrotMobile", "TurboNumber", "VehicleHeightNumber", "WheelNumber", "CarrotPogoStickColor"
+}
+
+-- 1. Bildirim ve Sınır Kontrollerinin Modifiye Edilmesi
+local successNotification, NotificationController = pcall(function()
+    return require(ReplicatedStorage.Modules.Client.UI.NotificationController)
+end)
+
+if successNotification and NotificationController then
+    -- İstemci tarafındaki uyarı fonksiyonu boş bir fonksiyonla ezilir
+    NotificationController.NotifyEditor = function(...) 
+        return nil 
+    end
+end
+
+-- 2. Panel Denetleyicisinin (PanelController) Entegrasyonu
+local successPanel, PanelController = pcall(function()
+    return require(ReplicatedStorage.Modules.Client.UI.PanelController)
+end)
+
+-- 3. Sürekli Güncelleme ve Görünürlük Döngüsü
+task.spawn(function()
+    while true do
+        pcall(function()
+            -- Liste içerisindeki tüm arayüzlerin durumunu güncelle
+            for _, interfaceName in ipairs(interfaceList) do
+                local currentMenu = NoResetGUIHandler:FindFirstChild(interfaceName)
+                if currentMenu then
+                    -- Görünürlük özelliğini zorla aktif et
+                    currentMenu.Visible = true
+                    
+                    -- Eğer PanelController mevcutsa, arayüzün açık kalmasını sağla
+                    if successPanel and PanelController then
+                        PanelController.Open("NoResetGUIHandler", interfaceName)
+                    end
+                end
+            end
+            
+            -- Ana kontrol butonlarının (MainButtons) görünürlüğünü koru
+            local MainButtons = NoResetGUIHandler:FindFirstChild("MainButtons")
+            if MainButtons then
+                MainButtons.Visible = true
+            end
+        end)
+        task.wait(0.2) -- Döngünün işlemciyi yormaması için kısa bir duraklatma süresi
+    end
+end)
+
+print("[Sistem] Tüm istemci arayüz bileşenleri tek parça halinde yapılandırıldı.")
+
+
+-- // 3. BÖLÜM: Başlatıcı (Initializer)
+print("==============================================")
+print("[Voldex Master SDK] Tam Kanca Sistemi Aktif!")
+print("[Durum] Telemetri Koruma: AKTİF")
+print("[Durum] Pathing Koruma: AKTİF")
+print("==============================================")
 
 -- ==========================================
 -- [AI] TITAN TEXT-FIXER (GENERIC TEXT NORMALIZER)
@@ -379,6 +520,7 @@ local TargetModules = {
     "VehicleTextBox", "VehicleTextColorButton", "VehicleTextEditModal", "VehicleToggleFlashingLightsButton",
     "VehicleToggleSirenSoundButton", "VehicleDetachComponentButton", "VehiclePlayDukeButton", "VehicleToggleFireButton",
     "VehicleToggleSmokeButton", "VehicleTurboButton","VehicleService", "VehiclePoliceButton", "VehiclePoliceSirenButton", "VehiclePoliceSirenColorPicker",
+   "PurchaseRobloxPlus", "AllGamepasses", "GamepassController", "Gamepasses","ServerConfiguration", "UnlockableController", "ClientConfiguration", "BaseConfiguration", "VehicleCustomizationPanelCheck",
 }
 
 -- =============================================================================
@@ -812,7 +954,7 @@ local function hijackPlusSystem()
 
         -- 1. GAMEPASS CONTROLLER'I EZ (ZORLA PLUS YAP)
         if type(GamepassController) == "table" then
-            local plusFunctions = {"HasPass", "OwnsGamepass", "IsPremium", "IsPlus", "HasPlus"}
+            local plusFunctions = {"HasPass", "OwnsGamepass", "IsPremium", "IsPlus", "HasPlus","ShowGamepass","IM_GamepassAll","PromptColorGamepassNeeded","PromptGamepassPurchase"}
             
             -- Oyun "Plus var mı?" diye soran hangi fonksiyonu kullanırsa kullansın, 'Evet' dedirtiyoruz
             for _, funcName in pairs(plusFunctions) do
@@ -854,17 +996,54 @@ local function hijackPlusSystem()
     return success, err
 end
 
--- 3. UI ENTEGRASYONU (XenoTab)
 XenoTab:AddButton({
-    Name = "🌟 Hijack PLUS (Ele Geçir) 👑",
+    Name = HasPremium
+        and "🌟 Hijack PLUS 👑"
+        or "🔒 Hijack PLUS (Premium Gerekli)",
+
     Callback = function()
-        local res, err = hijackPlusSystem()
-        if res then
-            sendNotify("🌟 PLUS HIJACKED", "Plus ayrıcalıkları ele geçirildi! Sen artık bir Kralsın. 👑")
-            print("✅ [HIJACK] Oyunun Plus/Premium yetkileri başarıyla senin kontrolünde.")
-        else
-            sendNotify("❌ Error", "Plus Bypass başarısız: " .. tostring(err))
+
+        if not HasPremium then
+            sendNotify(
+                "🔒 Premium Locked",
+                "Bu özelliği kullanmak için Premium gerekli."
+            )
+            return
         end
+
+        CheckPremium(function()
+
+            pcall(function()
+
+                sendNotify(
+                    "🌟 PLUS SYSTEM",
+                    "Premium sistemi yükleniyor..."
+                )
+
+                local res, err = hijackPlusSystem()
+
+                if res then
+
+                    sendNotify(
+                        "👑 SUCCESS",
+                        "Plus sistemi başarıyla aktif edildi!"
+                    )
+
+                    print("✅ PLUS aktif.")
+
+                else
+
+                    sendNotify(
+                        "❌ Error",
+                        tostring(err)
+                    )
+
+                    warn(err)
+                end
+
+            end)
+
+        end)
     end
 })
 
@@ -1865,6 +2044,7 @@ XenoTab:AddButton({
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SpawnRemote = ReplicatedStorage:WaitForChild("RE"):WaitForChild("1Ca1r")
 local ProfilingRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ClientProfiling:SendData")
+local SpawnRemote2 = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("SpawnVehicle")
 
 -- Premium/Admin Araç Listesi (Bu listeyi oyun içindeki kodlardan veya internetten bulduğun ID'lerle genişletebilirsin)
 local UltimateCarList = {
@@ -2068,10 +2248,380 @@ RemoteTab:AddButton({
 })
 
 -- ==========================================
--- ⚙️ AYARLAR
+-- 🛡️ TITAN OMNI - FULL MAX KORUMA SİSTEMİ
 -- ==========================================
-local SettingsTab = Window:MakeTab({ Name = T("Settings"), Icon = "rbxassetid://7072721682" })
-SettingsTab:AddSection(T("LangSelect"))
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+
+local LP = Players.LocalPlayer
+
+local ProtectTab = Window:MakeTab({
+    Name = "Koruma",
+    Icon = "rbxassetid://7733964719"
+})
+
+local States = {}
+local Connections = {}
+
+-- ==========================================
+-- BİLDİRİM
+-- ==========================================
+
+local function notify(title, text)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = title,
+            Text = text,
+            Duration = 3
+        })
+    end)
+end
+
+-- ==========================================
+-- PREMIUM TEXT
+-- ==========================================
+
+local function premiumText(name, premium)
+    if premium and not HasPremium then
+        return "🔒 " .. name .. " (Premium)"
+    end
+
+    return name
+end
+
+-- ==========================================
+-- TOGGLE CREATOR
+-- ==========================================
+
+local function createToggle(name, key, premium, func)
+
+    ProtectTab:AddToggle({
+        Name = premiumText(name, premium),
+        Default = false,
+
+        Callback = function(v)
+
+            if premium and not HasPremium then
+                notify("🔒 Premium", "Bu özellik Premium gerektiriyor.")
+                return
+            end
+
+            CheckPremium(function()
+
+                local ok, err = pcall(function()
+
+                    States[key] = v
+
+                    if func then
+                        func(v)
+                    end
+
+                end)
+
+                if not ok then
+                    warn("[KORUMA HATA]:", err)
+                    notify("❌ Error", tostring(err))
+                end
+            end)
+        end
+    })
+end
+
+-- ==========================================
+-- ANA KORUMA
+-- ==========================================
+
+ProtectTab:AddSection("🛡️ Ana Koruma")
+
+createToggle("Anti AFK", "AntiAFK", false, function(v)
+
+    if v then
+        Connections.AFK = LP.Idled:Connect(function()
+            local VirtualUser = game:GetService("VirtualUser")
+            VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+            task.wait(1)
+            VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        end)
+    else
+        if Connections.AFK then
+            Connections.AFK:Disconnect()
+        end
+    end
+end)
+
+createToggle("Anti Fall Down", "AntiFall", false, function(v)
+
+    if v then
+        Connections.Fall = RunService.Heartbeat:Connect(function()
+
+            local char = LP.Character
+            if not char then return end
+
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+
+            if hrp and hrp.Position.Y < -15 then
+                hrp.CFrame = CFrame.new(0,10,0)
+            end
+        end)
+    else
+        if Connections.Fall then
+            Connections.Fall:Disconnect()
+        end
+    end
+end)
+
+createToggle("Anti Void", "AntiVoid", false, function(v)
+
+    if v then
+        Connections.Void = RunService.RenderStepped:Connect(function()
+
+            local char = LP.Character
+            if not char then return end
+
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+
+            if hrp and hrp.Position.Y < -50 then
+                hrp.Velocity = Vector3.zero
+                hrp.CFrame = CFrame.new(0,25,0)
+            end
+        end)
+    else
+        if Connections.Void then
+            Connections.Void:Disconnect()
+        end
+    end
+end)
+
+createToggle("Anti Lag", "AntiLag", false, function(v)
+
+    if v then
+        settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+    else
+        settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic
+    end
+end)
+
+createToggle("Anti Crash", "AntiCrash", false, function(v)
+
+    if v then
+        for _,obj in ipairs(workspace:GetDescendants()) do
+
+            if obj:IsA("ParticleEmitter")
+            or obj:IsA("Trail")
+            or obj:IsA("Explosion") then
+
+                obj.Enabled = false
+            end
+        end
+    end
+end)
+
+-- ==========================================
+-- EXPLOIT KORUMALARI
+-- ==========================================
+
+ProtectTab:AddSection("🛡️ Exploit Koruması")
+
+createToggle("Anti Fling", "AntiFling", false, function(v)
+
+    if v then
+
+        Connections.Fling = RunService.Stepped:Connect(function()
+
+            local char = LP.Character
+            if not char then return end
+
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+
+            if hrp then
+                hrp.AssemblyAngularVelocity = Vector3.zero
+                hrp.AssemblyLinearVelocity = Vector3.zero
+            end
+        end)
+
+    else
+
+        if Connections.Fling then
+            Connections.Fling:Disconnect()
+        end
+    end
+end)
+
+createToggle("Anti Cars Fling", "AntiCarsFling", true, function(v)
+
+    if v then
+
+        Connections.CarFling = RunService.Heartbeat:Connect(function()
+
+            for _,car in ipairs(workspace:GetDescendants()) do
+
+                if car:IsA("VehicleSeat") then
+                    car.MaxSpeed = math.clamp(car.MaxSpeed,0,120)
+                end
+            end
+        end)
+
+    else
+
+        if Connections.CarFling then
+            Connections.CarFling:Disconnect()
+        end
+    end
+end)
+
+createToggle("Anti Jets Fling", "AntiJetsFling", true, function(v)
+
+    if v then
+
+        Connections.JetFling = RunService.Stepped:Connect(function()
+
+            local char = LP.Character
+            if not char then return end
+
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+
+            if hrp then
+                hrp.RotVelocity = Vector3.zero
+            end
+        end)
+
+    else
+
+        if Connections.JetFling then
+            Connections.JetFling:Disconnect()
+        end
+    end
+end)
+
+createToggle("Anti Helicopters Fling", "AntiHeli", true, function(v)
+
+    if v then
+
+        Connections.Heli = RunService.RenderStepped:Connect(function()
+
+            local char = LP.Character
+            if not char then return end
+
+            local hum = char:FindFirstChildOfClass("Humanoid")
+
+            if hum then
+                hum.PlatformStand = false
+            end
+        end)
+
+    else
+
+        if Connections.Heli then
+            Connections.Heli:Disconnect()
+        end
+    end
+end)
+
+createToggle("Anti Ball Fling", "AntiBall", true, function(v)
+
+    if v then
+
+        Connections.Ball = RunService.Heartbeat:Connect(function()
+
+            for _,v in ipairs(workspace:GetDescendants()) do
+
+                if v:IsA("BallSocketConstraint") then
+                    v.Enabled = false
+                end
+            end
+        end)
+
+    else
+
+        if Connections.Ball then
+            Connections.Ball:Disconnect()
+        end
+    end
+end)
+
+createToggle("Anti Doors Fling", "AntiDoor", true, function(v)
+
+    if v then
+
+        Connections.Door = RunService.Stepped:Connect(function()
+
+            for _,v in ipairs(workspace:GetDescendants()) do
+
+                if v.Name:lower():find("door") and v:IsA("BasePart") then
+                    v.CanCollide = false
+                end
+            end
+        end)
+
+    else
+
+        if Connections.Door then
+            Connections.Door:Disconnect()
+        end
+    end
+end)
+
+-- ==========================================
+-- ELITE PANEL
+-- ==========================================
+
+ProtectTab:AddSection("⭐ Elite")
+
+ProtectTab:AddButton({
+    Name = premiumText("Elite Protection Scan", true),
+
+    Callback = function()
+
+        if not HasPremium then
+            notify("🔒 Premium", "Bu özellik Premium gerektiriyor.")
+            return
+        end
+
+        CheckPremium(function()
+
+            pcall(function()
+
+                local total = 0
+
+                for _,v in ipairs(workspace:GetDescendants()) do
+                    total += 1
+                end
+
+                notify(
+                    "🛡️ Scan Complete",
+                    "Tarandı: "..total.." obje"
+                )
+
+            end)
+        end)
+    end
+})
+
+-- ==========================================
+-- ⚙️ GELİŞMİŞ AYARLAR & KARAKTER (TITAN OMNI MAX)
+-- ==========================================
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
+local Lighting = game:GetService("Lighting")
+
+local SettingsTab = Window:MakeTab({ Name = T("Settings") or "Ayarlar/Oyuncu", Icon = "rbxassetid://7072721682" })
+
+-- // DEĞİŞKENLER (Toggles)
+local _G = _G or {}
+_G.LoopSpeed = false
+_G.TargetSpeed = 16
+_G.InfJump = false
+_G.Noclip = false
+_G.FullBright = false
+
+-- ==========================================
+-- 🌐 SİSTEM VE DİL AYARLARI
+-- ==========================================
+SettingsTab:AddSection(T("SysSettings") or "Sistem ve Dil")
+
 SettingsTab:AddDropdown({
     Name = "Language / Dil / Idioma",
     Default = currentLang,
@@ -2079,28 +2629,191 @@ SettingsTab:AddDropdown({
     Callback = function(Value)
         currentLang = Value
         pcall(function() if writefile then writefile("TitanOmni_Language.txt", Value) end end)
-        sendNotify("Sistem", T("LangSet"), "rbxassetid://135403840994127")
+        sendNotify("Titan Omni", T("LangSet") or "Dil başarıyla değiştirildi!", "rbxassetid://135403840994127")
     end
 })
 
-SettingsTab:AddSection(T("CharSet"))
-SettingsTab:AddSlider({
-    Name = "WalkSpeed", Min = 16, Max = 300, Default = 16,
-    Callback = function(v) if LP.Character then LP.Character.Humanoid.WalkSpeed = v end end
-})
-SettingsTab:AddSlider({
-    Name = "JumpPower", Min = 50, Max = 500, Default = 50,
-    Callback = function(v) if LP.Character then LP.Character.Humanoid.JumpPower = v end end
+SettingsTab:AddToggle({
+    Name = "Anti-AFK (Kick Koruması)",
+    Default = false,
+    Callback = function(Value)
+        if Value then
+            -- Oyunun seni 20 dakika hareketsizlikten atmasını engeller
+            LP.Idled:Connect(function()
+                VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+                task.wait(1)
+                VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+            end)
+            sendNotify("Titan Omni", "Anti-AFK Aktif!", "rbxassetid://135403840994127")
+        end
+    end
 })
 
-SettingsTab:AddSection(T("SysClean"))
+-- ==========================================
+-- 🏃 KARAKTER VE FİZİK MANİPÜLASYONU
+-- ==========================================
+SettingsTab:AddSection(T("CharSet") or "Karakter Fizikleri")
+
+SettingsTab:AddSlider({
+    Name = "WalkSpeed (Hız)", Min = 16, Max = 300, Default = 16,
+    Callback = function(v) 
+        _G.TargetSpeed = v
+        if LP.Character and LP.Character:FindFirstChild("Humanoid") then 
+            LP.Character.Humanoid.WalkSpeed = v 
+        end 
+    end
+})
+
+SettingsTab:AddToggle({
+    Name = "Loop WalkSpeed (Anti-Hız Sıfırlama)",
+    Default = false,
+    Callback = function(Value)
+        _G.LoopSpeed = Value
+    end
+})
+
+SettingsTab:AddSlider({
+    Name = "JumpPower (Zıplama Gücü)", Min = 50, Max = 500, Default = 50,
+    Callback = function(v) 
+        if LP.Character and LP.Character:FindFirstChild("Humanoid") then 
+            LP.Character.Humanoid.UseJumpPower = true
+            LP.Character.Humanoid.JumpPower = v 
+        end 
+    end
+})
+
+SettingsTab:AddToggle({
+    Name = "Infinite Jump (Sınırsız Zıplama)",
+    Default = false,
+    Callback = function(Value)
+        _G.InfJump = Value
+    end
+})
+
+SettingsTab:AddToggle({
+    Name = "Noclip (Duvarlardan Geçme)",
+    Default = false,
+    Callback = function(Value)
+        _G.Noclip = Value
+    end
+})
+
+SettingsTab:AddSlider({
+    Name = "Gravity (Yerçekimi)", Min = 0, Max = 196.2, Default = 196.2,
+    Callback = function(v) 
+        workspace.Gravity = v 
+    end
+})
+
+-- ==========================================
+-- 🌍 GÖRÜNTÜ VE DÜNYA (VISUALS)
+-- ==========================================
+SettingsTab:AddSection("Dünya ve Görsellik")
+
+SettingsTab:AddToggle({
+    Name = "FullBright (Karanlığı Kaldır)",
+    Default = false,
+    Callback = function(Value)
+        _G.FullBright = Value
+        if Value then
+            Lighting.Ambient = Color3.new(1, 1, 1)
+            Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
+            Lighting.ColorShift_Top = Color3.new(1, 1, 1)
+        else
+            Lighting.Ambient = Color3.fromRGB(127, 127, 127) -- Varsayılanı geri yükler
+        end
+    end
+})
+
+SettingsTab:AddSlider({
+    Name = "FOV (Kamera Görüş Açısı)", Min = 70, Max = 120, Default = 70,
+    Callback = function(v) 
+        workspace.CurrentCamera.FieldOfView = v
+    end
+})
+
+-- ==========================================
+-- 🛠️ YARDIMCI ARAÇLAR VE TEMİZLİK
+-- ==========================================
+SettingsTab:AddSection(T("SysClean") or "Sunucu ve Temizlik")
+
 SettingsTab:AddButton({
-    Name = T("DestroyHub"),
+    Name = "Server Hop (Başka Sunucuya Geç)",
     Callback = function()
-        MyJanitor:Cleanup()
-        sendNotify("Sistem", T("JanitorMsg"))
+        local TeleportService = game:GetService("TeleportService")
+        TeleportService:Teleport(game.PlaceId, LP)
     end
 })
+
+SettingsTab:AddButton({
+    Name = "Rejoin (Aynı Sunucuya Tekrar Gir)",
+    Callback = function()
+        local TeleportService = game:GetService("TeleportService")
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LP)
+    end
+})
+
+SettingsTab:AddButton({
+    Name = T("DestroyHub") or "Arayüzü Sil (Unload)",
+    Callback = function()
+        _G.LoopSpeed = false
+        _G.Noclip = false
+        _G.InfJump = false
+        MyJanitor:Cleanup()
+        sendNotify("Sistem", T("JanitorMsg") or "Titan Omni kapatıldı ve temizlendi.")
+    end
+})
+
+-- ==========================================
+-- 🔄 ARKA PLAN DÖNGÜLERİ VE FONKSİYONLAR
+-- ==========================================
+
+-- 1. Premium Scanner Döngüsü
+task.spawn(function()
+    while task.wait(10) do
+        if not HasPremium then
+            HasPremium = runEliteScanner()
+            if splib then splib.IsPremium = HasPremium end
+            if HasPremium then
+                sendNotify("Titan Omni", "VIP/Premium Özellikler Aktif Edildi!", "rbxassetid://135403840994127")
+            end
+        end
+    end
+end)
+
+-- 2. Noclip, LoopSpeed ve FullBright Döngüsü (Stepped Kullanılır ki sarsıntı yapmasın)
+RunService.Stepped:Connect(function()
+    pcall(function()
+        if not LP.Character then return end
+        
+        -- Noclip
+        if _G.Noclip then
+            for _, part in ipairs(LP.Character:GetDescendants()) do
+                if part:IsA("BasePart") and part.CanCollide == true then
+                    part.CanCollide = false
+                end
+            end
+        end
+        
+        -- Loop WalkSpeed (Oyun hızı düşürürse zorla geri çek)
+        if _G.LoopSpeed and LP.Character:FindFirstChild("Humanoid") then
+            LP.Character.Humanoid.WalkSpeed = _G.TargetSpeed
+        end
+        
+        -- FullBright Sürekli Yenileme (Oyun gece yapmaya çalışırsa engeller)
+        if _G.FullBright then
+            Lighting.ClockTime = 12
+            Lighting.GlobalShadows = false
+        end
+    end)
+end)
+
+-- 3. Infinite Jump İşleyicisi
+UserInputService.JumpRequest:Connect(function()
+    if _G.InfJump and LP.Character and LP.Character:FindFirstChild("Humanoid") then
+        LP.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end)
 
 task.spawn(function()
     while task.wait(10) do
@@ -2111,4 +2824,4 @@ task.spawn(function()
     end
 end)
 
-sendNotify("TITAN V15", T("Loaded") .. " " .. (HasPremium and T("EliteOn") or T("StdOn")), "rbxassetid://135403840994127")
+sendNotify("TITAN V15", T("Loaded") .. " " .. (HasPremium and T("EliteOn") or T("StdOn")), "rbxassetid://135403840994127")ww
