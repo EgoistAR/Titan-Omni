@@ -2247,8 +2247,6 @@ RemoteTab:AddButton({
     end
 })
 
-
-
 -- ==========================================
 -- ⚙️ GELİŞMİŞ AYARLAR & KARAKTER (TITAN OMNI MAX)
 -- ==========================================
@@ -2474,4 +2472,4 @@ task.spawn(function()
     end
 end)
 
-sendNotify("TITAN V15", T("Loaded") .. " " .. (HasPremium and T("EliteOn") or T("StdOn")), "rbxassetid://135403840994127")w
+sendNotify("TITAN V15", T("Loaded") .. " " .. (HasPremium and T("EliteOn") or T("StdOn")), "rbxassetid://135403840994127")
