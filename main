@@ -80,30 +80,7 @@ end
 
 return GameSdk
 
--- // 1. BÖLÜM: Bypass/Proxy Mantığı (Yukarıdaki fonksiyonlar burada dursun)
-local function InterceptFireServer(remoteInstance, ...)
-    -- Burada kontrol mantığın...
-    -- Eğer engellemek istersen:
-    -- if remoteInstance.Name == "..." then return end
-    
-    return OriginalFireServer(remoteInstance, ...)
-end
 
--- // 2. BÖLÜM: Hook İşlemi (Metatable'ı ele geçir)
-local mt = getrawmetatable(game)
-setreadonly(mt, false)
-local oldNamecall = mt.__namecall
-mt.__namecall = newcclosure(function(self, ...)
-    local method = getnamecallmethod()
-    if method == "FireServer" and string.find(self.Name, "GameSdk") then
-        return InterceptFireServer(self, ...)
-    end
-    return oldNamecall(self, ...)
-end)
-
--- // 3. BÖLÜM: Oyunun kendi fonksiyonlarını tetiklediği yer
--- Buraya dokunmana gerek yok, artık oyunun kendi kodları 
--- "FireServer" dediği an senin kancana takılacak.
 
 -- ==========================================
 -- [AI] TITAN TEXT-FIXER (GENERIC TEXT NORMALIZER)
