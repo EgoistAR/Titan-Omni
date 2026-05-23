@@ -30,57 +30,30 @@ local function safeHook(funcName)
     return success
 end
 
-print("✅ [SYSTEM] Core modüller güvenli bir şekilde yüklendi.")
-
--- GameSdk_Bypass_Controller.lua
-local GameSdk = {}
-
--- Orijinal fonksiyonların referanslarını tut
-local OriginalFireServer = Instance.new("RemoteEvent").FireServer 
-
--- Telemetri ve Pathing verilerini manipüle eden "Hook"
+-- // 1. BÖLÜM: Bypass/Proxy Mantığı (Yukarıdaki fonksiyonlar burada dursun)
 local function InterceptFireServer(remoteInstance, ...)
-    local args = {...}
-    local remoteName = remoteInstance.Name
-
-    -- 1. Pathing Kontrolü: Eğer oyun senin konumunu gönderiyorsa, bunu "sahte" veriye çevir
-    if remoteName == "GameSdkPathingRemoteEvent" then
-        print("[Bypass] Pathing verisi engellendi, sahte veri gönderiliyor.")
-        -- Buraya rastgele veya sabit bir CFrame verisi enjekte edebilirsin
-        return -- Orijinal FireServer'ı tetikleme!
-    end
-
-    -- 2. Telemetri Kontrolü: Oyuncunun hareketlerini takip etmesini engelle
-    if remoteName == "GameSdkTelemetryRemoteEvent" then
-        warn("[Bypass] Telemetri verisi durduruldu.")
-        return 
-    end
-
-    -- Diğer tüm veriler için orijinal fonksiyonu çağır
+    -- Burada kontrol mantığın...
+    -- Eğer engellemek istersen:
+    -- if remoteInstance.Name == "..." then return end
+    
     return OriginalFireServer(remoteInstance, ...)
 end
 
--- Tüm SDK modüllerini manipüle edilmiş hale getir
-function GameSdk.PatchAll()
-    -- `FireServer` fonksiyonunun üzerine `InterceptFireServer` fonksiyonumuzu yazıyoruz
-    local mt = getrawmetatable(game)
-    setreadonly(mt, false)
-    
-    local oldNamecall = mt.__namecall
-    mt.__namecall = newcclosure(function(self, ...)
-        local method = getnamecallmethod()
-        if method == "FireServer" and string.find(self.Name, "GameSdk") then
-            return InterceptFireServer(self, ...)
-        end
-        return oldNamecall(self, ...)
-    end)
-    
-    print("Voldex SDK Bypass Sistemi Tamamen Aktif!")
-end
+-- // 2. BÖLÜM: Hook İşlemi (Metatable'ı ele geçir)
+local mt = getrawmetatable(game)
+setreadonly(mt, false)
+local oldNamecall = mt.__namecall
+mt.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    if method == "FireServer" and string.find(self.Name, "GameSdk") then
+        return InterceptFireServer(self, ...)
+    end
+    return oldNamecall(self, ...)
+end)
 
-return GameSdk
-
-
+-- // 3. BÖLÜM: Oyunun kendi fonksiyonlarını tetiklediği yer
+-- Buraya dokunmana gerek yok, artık oyunun kendi kodları 
+-- "FireServer" dediği an senin kancana takılacak.
 
 -- ==========================================
 -- [AI] TITAN TEXT-FIXER (GENERIC TEXT NORMALIZER)
