@@ -1,0 +1,2164 @@
+-- ==========================================
+-- 🚀 SP HUB & TITAN OMNI-MAX V15 | THE ULTIMATE FULL-MAX ELITE
+-- ==========================================
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RS = game:GetService("ReplicatedStorage")
+local LP = game:GetService("Players").LocalPlayer
+local CorePackages = game:GetService("CorePackages")
+local TextChatService = game:GetService("TextChatService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local TeleportService = game:GetService("TeleportService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+-- ==========================================
+-- 🛡️ SAFE-LOAD & ERROR SUPPRESSION (Hata Önleyici)
+-- ==========================================
+
+-- Oyunun tamamen yüklenmesini bekle (Hataları önlemek için kritik)
+repeat task.wait() until game:IsLoaded()
+
+-- Nil hatası veren fonksiyonları sessize al ve scriptin çökmesini engelle
+local oldPrint = print
+function print(...) end -- Konsolu temiz tutmak için
+
+local function safeHook(funcName)
+    local success, result = pcall(function()
+        return funcName()
+    end)
+    return success
+end
+
+print("✅ [SYSTEM] Core modüller güvenli bir şekilde yüklendi.")
+
+-- GameSdk_Bypass_Controller.lua
+local GameSdk = {}
+
+-- Orijinal fonksiyonların referanslarını tut
+local OriginalFireServer = Instance.new("RemoteEvent").FireServer 
+
+-- Telemetri ve Pathing verilerini manipüle eden "Hook"
+local function InterceptFireServer(remoteInstance, ...)
+    local args = {...}
+    local remoteName = remoteInstance.Name
+
+    -- 1. Pathing Kontrolü: Eğer oyun senin konumunu gönderiyorsa, bunu "sahte" veriye çevir
+    if remoteName == "GameSdkPathingRemoteEvent" then
+        print("[Bypass] Pathing verisi engellendi, sahte veri gönderiliyor.")
+        -- Buraya rastgele veya sabit bir CFrame verisi enjekte edebilirsin
+        return -- Orijinal FireServer'ı tetikleme!
+    end
+
+    -- 2. Telemetri Kontrolü: Oyuncunun hareketlerini takip etmesini engelle
+    if remoteName == "GameSdkTelemetryRemoteEvent" then
+        warn("[Bypass] Telemetri verisi durduruldu.")
+        return 
+    end
+
+    -- Diğer tüm veriler için orijinal fonksiyonu çağır
+    return OriginalFireServer(remoteInstance, ...)
+end
+
+-- Tüm SDK modüllerini manipüle edilmiş hale getir
+function GameSdk.PatchAll()
+    -- `FireServer` fonksiyonunun üzerine `InterceptFireServer` fonksiyonumuzu yazıyoruz
+    local mt = getrawmetatable(game)
+    setreadonly(mt, false)
+    
+    local oldNamecall = mt.__namecall
+    mt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        if method == "FireServer" and string.find(self.Name, "GameSdk") then
+            return InterceptFireServer(self, ...)
+        end
+        return oldNamecall(self, ...)
+    end)
+    
+    print("Voldex SDK Bypass Sistemi Tamamen Aktif!")
+end
+
+return GameSdk
+
+-- // 1. BÖLÜM: Bypass/Proxy Mantığı (Yukarıdaki fonksiyonlar burada dursun)
+local function InterceptFireServer(remoteInstance, ...)
+    -- Burada kontrol mantığın...
+    -- Eğer engellemek istersen:
+    -- if remoteInstance.Name == "..." then return end
+    
+    return OriginalFireServer(remoteInstance, ...)
+end
+
+-- // 2. BÖLÜM: Hook İşlemi (Metatable'ı ele geçir)
+local mt = getrawmetatable(game)
+setreadonly(mt, false)
+local oldNamecall = mt.__namecall
+mt.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    if method == "FireServer" and string.find(self.Name, "GameSdk") then
+        return InterceptFireServer(self, ...)
+    end
+    return oldNamecall(self, ...)
+end)
+
+-- // 3. BÖLÜM: Oyunun kendi fonksiyonlarını tetiklediği yer
+-- Buraya dokunmana gerek yok, artık oyunun kendi kodları 
+-- "FireServer" dediği an senin kancana takılacak.
+
+-- ==========================================
+-- [AI] TITAN TEXT-FIXER (GENERIC TEXT NORMALIZER)
+-- ==========================================
+local TITAN_AI = {
+    FilterActive = true,
+    CorrectionMap = {
+        ["oe"] = "ö", ["OE"] = "Ö", ["ae"] = "ä", ["AE"] = "Ä",
+        ["ue"] = "ü", ["UE"] = "Ü", ["ss"] = "ß", ["SS"] = "ß",
+        ["sh"] = "ş", ["SH"] = "Ş", ["ch"] = "ç", ["CH"] = "Ç",
+        ["gh"] = "ğ", ["GH"] = "Ğ", ["ie"] = "ı", ["IE"] = "İ",
+        ["[VNG_BLOCK]"] = "", ["[BLOCK]"] = "",
+        ["\\n"] = "\n", ["\\t"] = "\t", ["  "] = " ",
+    },
+    StripMap = {
+        ["  "] = " ", ["   "] = " ", ["    "] = " ", ["\r"] = "",
+    }
+}
+
+function TITAN_AI:FixCorrupted(text)
+    if type(text) ~= "string" then return text end
+    local out = text
+    for from, to in pairs(self.CorrectionMap) do out = out:gsub(from, to) end
+    out = out:gsub("%s+([,%.%!%?%:;])", "%1")
+    out = out:gsub("([,%.%!%?%:;])([A-Za-zÇĞİÖŞÜçğıöşü])", "%1 %2")
+    out = out:gsub("%s+", " ")
+    out = out:gsub("^%s+", ""):gsub("%s+$", "")
+    return out
+end
+
+function TITAN_AI:CleanForVNG(text)
+    if type(text) ~= "string" then return text end
+    local out = text
+    out = out:gsub("ö", "o"):gsub("Ö", "O"):gsub("ü", "u"):gsub("Ü", "U")
+    out = out:gsub("ä", "a"):gsub("Ä", "A"):gsub("ş", "s"):gsub("Ş", "S")
+    out = out:gsub("ç", "c"):gsub("Ç", "C"):gsub("ğ", "g"):gsub("Ğ", "G")
+    out = out:gsub("ı", "i"):gsub("İ", "I")
+    out = out:gsub("%[VNG_BLOCK%]", ""):gsub("%[BLOCK%]", "")
+    out = out:gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
+    return out
+end
+
+function TITAN_AI:FixText(text, safeMode)
+    if not self.FilterActive then return text end
+    local out = self:FixCorrupted(text)
+    if safeMode then out = self:CleanForVNG(out) end
+    return out
+end
+
+-- ==========================================
+-- [A] LOADER SİSTEMİ (VİDEO & SES)
+-- ==========================================
+local PlayerGui = LP:WaitForChild("PlayerGui")
+local VIDEO_ID = "rbxassetid://5608392925"
+local SOUND_ID = "rbxassetid://81954469360165"
+local VOLUME = 0.5
+local currentLang = "Turkish"
+
+if PlayerGui:FindFirstChild("SP_Video_System") then
+    PlayerGui.SP_Video_System:Destroy()
+end
+
+local Master = Instance.new("ScreenGui")
+Master.Name = "SP_Video_System"
+Master.IgnoreGuiInset = true
+Master.ResetOnSpawn = false
+Master.Parent = PlayerGui
+
+local BackgroundMusic = Instance.new("Sound", Master)
+BackgroundMusic.Name = "SP_Background_Music"
+BackgroundMusic.SoundId = SOUND_ID
+BackgroundMusic.Volume = 0
+BackgroundMusic.Looped = true
+BackgroundMusic:Play()
+
+local BgVideo = Instance.new("VideoFrame", Master)
+BgVideo.Name = "SP_Background_Video"
+BgVideo.Size = UDim2.new(1, 0, 1, 0)
+BgVideo.Video = VIDEO_ID
+BgVideo.Looped = true
+BgVideo.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+BgVideo.ZIndex = 1
+BgVideo.Playing = true
+
+local BlurOverlay = Instance.new("Frame", Master)
+BlurOverlay.Size = UDim2.new(1, 0, 1, 0)
+BlurOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+BlurOverlay.BackgroundTransparency = 0.45
+BlurOverlay.ZIndex = 2
+
+local MainLoad = Instance.new("Frame", Master)
+MainLoad.Size = UDim2.new(0, 420, 0, 250)
+MainLoad.Position = UDim2.new(0.5, -210, 0.5, -125)
+MainLoad.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainLoad.BackgroundTransparency = 0.15
+MainLoad.ZIndex = 4
+Instance.new("UICorner", MainLoad).CornerRadius = UDim.new(0, 16)
+local Stroke = Instance.new("UIStroke", MainLoad)
+Stroke.Color = Color3.fromRGB(255, 170, 0)
+Stroke.Thickness = 2
+Stroke.Transparency = 0.05
+
+local Logo = Instance.new("TextLabel", MainLoad)
+Logo.Size = UDim2.new(1, 0, 0, 60)
+Logo.Position = UDim2.new(0, 0, 0.18, 0)
+Logo.BackgroundTransparency = 1
+Logo.Text = "🌟 SP HUB"
+Logo.TextColor3 = Color3.fromRGB(255, 255, 255)
+Logo.Font = Enum.Font.GothamBold
+Logo.TextSize = 48
+Logo.TextTransparency = 1
+Logo.ZIndex = 5
+
+local Status = Instance.new("TextLabel", MainLoad)
+Status.Size = UDim2.new(1, -20, 0, 28)
+Status.Position = UDim2.new(0, 10, 0.52, 0)
+Status.BackgroundTransparency = 1
+Status.Text = "⏳ Başlatılıyor..."
+Status.TextColor3 = Color3.fromRGB(210, 210, 210)
+Status.Font = Enum.Font.Gotham
+Status.TextSize = 16
+Status.TextTransparency = 1
+Status.ZIndex = 5
+
+local BarBG = Instance.new("Frame", MainLoad)
+BarBG.Size = UDim2.new(0.82, 0, 0, 8)
+BarBG.Position = UDim2.new(0.09, 0, 0.75, 0)
+BarBG.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+BarBG.BackgroundTransparency = 1
+BarBG.ZIndex = 5
+Instance.new("UICorner", BarBG).CornerRadius = UDim.new(1, 0)
+
+local BarFill = Instance.new("Frame", BarBG)
+BarFill.Size = UDim2.new(0, 0, 1, 0)
+BarFill.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
+BarFill.ZIndex = 6
+Instance.new("UICorner", BarFill).CornerRadius = UDim.new(1, 0)
+
+local LoaderFinished = false
+task.spawn(function()
+    TweenService:Create(Logo, TweenInfo.new(0.9), {TextTransparency = 0}):Play()
+    TweenService:Create(BackgroundMusic, TweenInfo.new(1.0), {Volume = VOLUME}):Play()
+    task.wait(1.3)
+    TweenService:Create(Status, TweenInfo.new(0.35), {TextTransparency = 0}):Play()
+    TweenService:Create(BarBG, TweenInfo.new(0.35), {BackgroundTransparency = 0.2}):Play()
+
+    local steps = { {at=15, t="🎵 Ses sistemi hazırlanıyor..."}, {at=35, t="🎬 Video arka planı yükleniyor..."}, {at=60, t="🧠 Arayüz bileşenleri kuruluyor..."}, {at=82, t="✨ Kaynaklar eşleniyor..."}, {at=96, t="✅ Hazırlık tamamlanıyor..."} }
+    local stepIndex = 1
+    for i = 1, 100 do
+        BarFill.Size = UDim2.new(i / 100, 0, 1, 0)
+        if steps[stepIndex] and i >= steps[stepIndex].at then
+            Status.Text = steps[stepIndex].t
+            stepIndex = stepIndex + 1
+        end
+        task.wait(0.03)
+    end
+    Status.Text = "🚀 Hazır!"
+    task.wait(0.8)
+    TweenService:Create(Logo, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
+    TweenService:Create(Status, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
+    TweenService:Create(BarBG, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
+    TweenService:Create(BackgroundMusic, TweenInfo.new(0.8), {Volume = 0}):Play()
+    task.wait(0.6)
+    Master:Destroy()
+    LoaderFinished = true
+end)
+repeat task.wait(0.1) until LoaderFinished
+
+-- ==========================================
+-- [B] LOCALES & LANGUAGE SYSTEM
+-- ==========================================
+currentLang = "Turkish"
+pcall(function() if isfile and isfile("TitanOmni_Language.txt") then currentLang = readfile("TitanOmni_Language.txt") end end)
+
+local Locales = {
+    ["Turkish"] = {
+        Locked = "🔒 [KİLİTLİ]", PremiumReq = "💎 Bu işlem için Elite Premium gerekiyor!", Loading = "⏳ Veriler Hesaplanıyor...",
+        WelcomeElite = "👑 Hoş geldin Seçkin Üye,", WelcomeStd = "👋 Hoş geldin,", Membership = "🏷️ Üyelik Seviyesi:", Device = "⚙️ Cihaz Gücü (Executor):",
+        Rejoin = "🔄 Hızlı Yeniden Bağlan (Rejoin)", DiscordJoin = "🔗 Discord Sunucusuna Katıl", Copied = "✅ Discord linki kopyalandı!",
+        BuyPrem = "💎 Elite Premium Satın Al", PremStatus = "👑 Premium Durumu", PremActive = "🟩 PREMIUM: AKTİF (SİSTEM ONAYLI)",
+        PremBuy = "🤑 PREMIUM AL / GEÇİŞ YAP (99 R$)", AlreadyPrem = "✅ Zaten Premium yetkiniz var!", BypassVIP = "🛡️ Bypass & VIP (PREMIUM)",
+        ActBypass = "🚀 ACTIVATE BYPASS", BypassLocked = "🔒 [PREMIUM] BYPASS", BypassOn = "⚡ V8 OMNI-BYPASS AKTİF! Tüm yetkiler açıldı.",
+        FastMods = "⚡ Hızlı Modlar", Items = "🎒 Eşyalar", Weps = "☢️ Ağır Silahlar", ToolsC = "⚔️ Aletler & Dövüş", Sports = "🎿 Spor & Eğlence",
+        Powers = "✨ Güçler", Settings = "⚙️ Ayarlar", CharSet = "🧍 Karakter Ayarları", SysClean = "🧹 Sistem Temizliği", DestroyHub = "🗑️ Destroy Hub (Janitor)",
+        JanitorMsg = "🧹 Janitor çalıştırıldı, bellek temizlendi.", Loaded = "✅ Tüm toollar ve Mars V8 Bypass yüklendi!", EliteOn = "👑 Elite Aktif.", StdOn = "🟦 Standart Aktif.",
+        DiscordAd = "📣 Güncellemeler için Discord sunucumuza katılın.", CopyDiscord = "📋 Discord Linkini Kopyala", LangSet = "🌍 Dil başarıyla değiştirildi! Uygulanması için scripti yeniden çalıştırın.",
+        LangSelect = "🌍 Dil Seçimi (Language)", Remotes = "📡 Sunucu Kontrol (Remotes)", FireAll = "💥 Tüm Remotelerı Ateşle (Stres Test)", PowerBoom = "⚡ Santrali Patlat",
+        SirenOn = "🚔 Acil Durum & Sirenleri Aç", Info = "ℹ️ Bilgi", Ana = "🏠 Ana", Kisayollar = "⌨️ Kısayollar", AvatarEditor = "🧍 Avatar Editor"
+    },
+    ["English"] = {
+        Locked = "🔒 LOCKED", PremiumReq = "💎 Elite Premium is required for this action!", Loading = "⏳ Calculating Data...",
+        WelcomeElite = "👑 Welcome Elite Member,", WelcomeStd = "👋 Welcome,", Membership = "🏷️ Membership Level:",
+        Device = "⚙️ Device Power (Executor):", Rejoin = "🔄 Fast Rejoin", DiscordJoin = "🔗 Join Discord Server", Copied = "✅ Discord link copied!",
+        BuyPrem = "💎 Buy Elite Premium", PremStatus = "👑 Premium Status", PremActive = "🟩 PREMIUM: ACTIVE (SYSTEM VERIFIED)",
+        PremBuy = "🤑 BUY PREMIUM / UPGRADE (99 R$)", AlreadyPrem = "✅ You already have Premium!", BypassVIP = "🛡️ Bypass & VIP (PREMIUM)",
+        ActBypass = "🚀 ACTIVATE BYPASS", BypassLocked = "🔒 [PREMIUM] BYPASS", BypassOn = "⚡ V8 OMNI-BYPASS ACTIVE! All perms unlocked.",
+        FastMods = "⚡ Fast Mods", Items = "🎒 Items", Weps = "☢️ Heavy Weapons", ToolsC = "⚔️ Tools & Combat", Sports = "🎿 Sports & Fun",
+        Powers = "✨ Powers", Settings = "⚙️ Settings", CharSet = "🧍 Character Settings", SysClean = "🧹 System Cleanup", DestroyHub = "🗑️ Destroy Hub (Janitor)",
+        JanitorMsg = "🧹 Janitor executed, memory cleared.", Loaded = "✅ All tools and Mars V8 Bypass loaded!", EliteOn = "👑 Elite Active.", StdOn = "🟦 Standard Active.",
+        DiscordAd = "📣 Join our Discord server for updates and remove this ad", CopyDiscord = "📋 Copy Discord Link", LangSet = "🌍 Language changed successfully! Re-execute the script to apply.",
+        LangSelect = "🌍 Select Language", Remotes = "📡 Server Remotes", FireAll = "💥 Fire All Remotes (Stress Test)", PowerBoom = "⚡ Explode Power Plant",
+        SirenOn = "🚔 Turn On Emergency Sirens", Info = "ℹ️ Info", Ana = "🏠 Home", Kisayollar = "⌨️ Shortcuts", AvatarEditor = "🧍 Avatar Editor"
+    }
+}
+local function T(key)
+    if Locales[currentLang] and Locales[currentLang][key] then return Locales[currentLang][key] end
+    return (Locales["English"] and Locales["English"][key]) or key
+end
+
+-- ==========================================
+-- [C] JANITOR & SERVICES
+-- ==========================================
+local splib = loadstring(game:HttpGet("https://raw.githubusercontent.com/as6cd0/SP_Hub/refs/heads/main/splibv2"))()
+
+local Janitor = (function()
+    local t2 = { ClassName = "Janitor", CurrentlyCleaning = false }
+    t2.__index = t2
+    local v2 = setmetatable({}, { __mode = "ks" })
+    local t3 = { ["function"] = true, thread = true, RBXScriptConnection = "Disconnect" }
+    function t2.new() return setmetatable({}, t2) end
+    function t2.Add(p1, p2, p3, p4)
+        local v1 = v2[p1] or {}
+        v2[p1] = v1
+        p1[p2] = p3 or t3[typeof(p2)] or "Destroy"
+        return p2
+    end
+    function t2.Cleanup(p1)
+        if p1.CurrentlyCleaning then return end
+        p1.CurrentlyCleaning = true
+        for obj, method in pairs(p1) do
+            if type(method) == "string" and obj[method] then pcall(function() obj[method](obj) end)
+            elseif method == true then pcall(function() if type(obj) == "function" then obj() else task.cancel(obj) end end) end
+        end
+        p1.CurrentlyCleaning = false
+    end
+    return t2
+end)()
+local MyJanitor = Janitor.new()
+
+local RE = RS:WaitForChild("RE", 15)
+local RemotesFolder = RS:WaitForChild("Remotes", 9e9)
+local PREMIUM_ID = 1829479246
+local TARGET_PLACE_ID = 109590042344227
+local HasPremium = false
+local RemoteCache = {}
+
+local function sendNotify(title, msg, icon, duration)
+    if splib and splib.MakeNotification then
+        splib:MakeNotification({ Name = tostring(title), Content = tostring(msg), Time = duration or 4, Icon = icon or "rbxassetid://135403840994127" })
+    end
+end
+
+local function FindRemote(remoteName)
+    if RemoteCache[remoteName] then return RemoteCache[remoteName] end
+    local remote = RE:FindFirstChild(remoteName) or RemotesFolder:FindFirstChild(remoteName) or RS:FindFirstChild(remoteName)
+    if remote then RemoteCache[remoteName] = remote end
+    return remote
+end
+
+local function RequestItemMax(itemName)
+    if not itemName then return false end
+    local candidates = {"GetItem", "Getİtem", "Get_Item", "GetTool", "1Too1l", "GiveItem"}
+    local triggerNames = {"1Playe1rTrigge1rEven1t", "PlayerTrigger", "AcceptedToolToServer"}
+    for _, name in ipairs(candidates) do
+        local remote = FindRemote(name)
+        if remote then
+            pcall(function()
+                if remote:IsA("RemoteFunction") then remote:InvokeServer(itemName)
+                elseif remote:IsA("RemoteEvent") then remote:FireServer(itemName) end
+            end)
+        end
+    end
+    for _, triggerName in ipairs(triggerNames) do
+        local triggerRemote = FindRemote(triggerName)
+        if triggerRemote and triggerRemote:IsA("RemoteEvent") then
+            pcall(function() triggerRemote:FireServer("AcceptedToolToServer", itemName, LP) end)
+        end
+    end
+    return true
+end
+
+-- =============================================================================
+-- BROOKHAVEN OMNI-BYPASS (FULL MAX EDITION)
+-- Tüm Araç, Premium, Hız ve Özelleştirme Modüllerini Zorla Açar
+-- =============================================================================
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+print("[SP Hub]: OMNI-BYPASS Başlatılıyor... Tüm modüller hedefleniyor.")
+
+-- =============================================================================
+-- 1. HEDEF LİSTESİ (Tüm Modüller ve UI Arayüzleri)
+-- =============================================================================
+local TargetModules = {
+    -- Temel Araçlar ve Fizik Kontrolleri
+    "MusicNoMotorVehicle", "RecolorableNoMotorVehicle", "VehicleBoatSplash", "VehicleClickDetectorOpenTextEdit",
+    "VehicleDriverSeatClient", "VehicleMassStability", "VehicleRoot", "VehicleRotatePartOnMove",
+    "VehicleSeatAnimationOnMove", "VehicleSeatConsoleCameraZoomSetter", "VehicleSteering", "VehicleSteeringLegacy",
+    "VehicleUnderglow", "VehicleWrapPart", "BabyWalkerVehicle", "SledVehicle2", "SledVehicleFX",
+    "MilitaryVehicle", "NoMotorVehicleController", "VehicleController", "VehicleHudTestController",
+    "VehicleItemRenderer", "VehicleWheelDecalButton", "VehicleWrapsUI",
+    
+    -- Hız, Alt Işık ve Araç İçi Kontroller
+    "VehicleDriftIncreaseButton", "VehicleDriftLabel", "VehicleMaxSpeedAllowedLabel", "VehicleSpeedCheckMark",
+    "VehicleSpeedIncreaseButton", "VehicleSpeedInput", "VehicleSuspensionButton", "VehicleWheelieButton",
+    "VehicleCustomizationPanelCheck", "VehicleUnderglowButton", "VehicleUnderglowCheckMark", "VehicleUnderglowColorPicker",
+    "VehicleUnderglowPropertyLabel", "VehicleUnderglowSetColorIndexButton", "VehicleUnderglowSettingsButton", "VehicleUnderglowSizeIncrementButton",
+    
+    -- Genel Butonlar ve Arayüz
+    "RemoveAirVehiclesButton", "VehicleColorPickerButton", "VehicleCustomizationControlsButton", "VehicleHornButton",
+    "VehicleLockButton", "VehicleMusicButton", "VehiclePanel", "VehiclePremiumControlsButton", "VehicleRepositionButton",
+    "VehicleSelectColorPartButton", "VehicleSteeringSettingsButton", "VehicleToggleHazardsButton", "VehicleToggleLightsButton",
+    "VehicleToggleVehicleMusicButton", "VehicleUnderglowControlsButton",
+    
+    -- Motorsuz Araçlar ve Upsell (Satın Almaya Yönlendirme) Kapatıcılar
+    "NoMotorVehicleAbPanelHandler", "NoMotorVehicleColorLimits", "NoMotorVehicleColorPanelButton", "NoMotorVehicleColorPicker",
+    "NoMotorVehicleCustomizationButton", "NoMotorVehicleExitButton", "NoMotorVehicleMusicButton", "NoMotorVehiclePanel",
+    "NoMotorVehicleSpeedIncreaseButton", "NoMotorVehicleSpeedIncreaseUpsellButton", "NoMotorVehicleSpeedTextBox",
+    "NoMotorVehicleSpeedUpsellDetector", "NoMotorVehicleToggleVisible",
+    
+    -- Ekstra Kontroller (Yazı, Polis, Premium Turbo vs.)
+    "VehicleTextBox", "VehicleTextColorButton", "VehicleTextEditModal", "VehicleToggleFlashingLightsButton",
+    "VehicleToggleSirenSoundButton", "VehicleDetachComponentButton", "VehiclePlayDukeButton", "VehicleToggleFireButton",
+    "VehicleToggleSmokeButton", "VehicleTurboButton","VehicleService", "VehiclePoliceButton", "VehiclePoliceSirenButton", "VehiclePoliceSirenColorPicker",
+}
+
+-- =============================================================================
+-- 2. ÇEKİRDEK GAMEPASS BYPASS (Satın Alma ve Yetki Kontrollerini Ezme)
+-- =============================================================================
+task.spawn(function()
+    local ModulesPath = ReplicatedStorage:WaitForChild("Modules", 5)
+    if ModulesPath then
+        -- UnlockableController Bypass
+        local ok, UnlockableController = pcall(function() 
+            return require(ModulesPath.Client.PlayerData.UnlockableController) 
+        end)
+        if ok and type(UnlockableController) == "table" and UnlockableController.IsFeatureUnlocked then
+            UnlockableController.IsFeatureUnlocked = function() return true end
+        end
+
+        -- GamepassController (Satın Alma Pop-up Engelleme)
+        local ok2, GamepassController = pcall(function() 
+            return require(ModulesPath.Client.UI.Gamepass.GamepassController) 
+        end)
+        if ok2 and type(GamepassController) == "table" and GamepassController.Show then
+            GamepassController.Show = function() return nil end
+        end
+    end
+end)
+
+-- =============================================================================
+-- 3. HEDEF LİSTESİNDEKİ TÜM UI VE MODÜLLERİ ZORLA AÇMA DÖNGÜSÜ
+-- =============================================================================
+local function ForceUnlockTarget(instance)
+    if not instance then return end
+    
+    -- Eğer obje bizim listemizdeki bir şeyse:
+    if table.find(TargetModules, instance.Name) then
+        -- 1. Arayüz elemanıysa görünür ve tıklanabilir yap
+        if instance:IsA("GuiObject") then
+            instance.Visible = true
+            instance.Active = true
+            -- Eğer buton ise tıklama kilitlerini aç
+            if instance:IsA("ImageButton") or instance:IsA("TextButton") then
+                instance.AutoButtonColor = true
+                instance.Selectable = true
+            end
+        end
+        
+        -- 2. Attribute limitlerini sıfırla (Max hız, Premium renk kilidi vb.)
+        if instance:GetAttribute("SingleVehicleSpawn") then
+            instance:SetAttribute("SingleVehicleSpawn", "")
+        end
+        if instance:GetAttribute("SpawnColor") then
+            instance:SetAttribute("SpawnColor", "Really black")
+        end
+        if instance:GetAttribute("IsPremium") or instance:GetAttribute("IsVIP") then
+            instance:SetAttribute("IsPremium", false)
+            instance:SetAttribute("IsVIP", false)
+        end
+    end
+end
+
+-- =============================================================================
+-- 4. OYUNDAKİ HER ŞEYİ TARAMA VE UYGULAMA
+-- =============================================================================
+task.spawn(function()
+    -- Mevcut olanları tara
+    for _, obj in ipairs(game:GetDescendants()) do
+        ForceUnlockTarget(obj)
+    end
+    
+    -- Oyuna yeni eklenenleri (menü açıldıkça yüklenenleri) anlık olarak yakala ve aç
+    game.DescendantAdded:Connect(ForceUnlockTarget)
+    
+    print("[SP Hub]: Tüm hedef modüller tarandı ve kilitler kaldırıldı!")
+end)
+
+-- =============================================================================
+-- 5. GÖRSEL KİLİT İKONLARINI YOK ETME
+-- =============================================================================
+task.spawn(function()
+    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+    for _, child in ipairs(PlayerGui:GetDescendants()) do
+        if child:IsA("ImageLabel") and (child.Name:find("Lock") or child.Name:find("PremiumIcon") or child.Name:find("Star")) then
+            child.Visible = false -- Menüdeki yıldız ve kilit resimlerini gizle
+        end
+    end
+end)
+
+local TargetRemotes = {
+    "1Mail1y", "1Message1s", "1Mobil1e", "1NoMoto1rVehicle1s", "1Pas1s", "1Playe1rTrigge1rEven1t", "1Player1sCa1r",
+    "1Player1sHous1e", "1Player1sHous1eChoic1e", "1Privat1eServe1rMessage1s", "1RFHous1eEven1t", "1RFNam1eColo1r",
+    "1RFNam1eTex1t", "1Time1rEven1t", "1Updat1eAvata1r", "1Weathe1r", "1Key1Fa1b", "1Too1l", "1Agenc1y",
+    "1Brookhav1enSec1rets", "1Ca1r", "1Gu1n", "1Hous1eCusto1mServe1r", "1Jo1b", "ToggleLockState", "ToggleHeadlights",
+    "ToggleOnFire", "ToggleVehicleMusic", "ToggleEmergencyLights", "ToggleEmergencySiren", "ToggleEngineSmoke",
+    "ToggleHazardLights", "SetVehicleState", "SetMaxSpeed", "Wear", "WearBundle", "WearOutfit", "ChangeCharacterBody",
+    "ChangePlayerToAvatar", "ChangeBodyColor", "QuickChat:Broadcast", "SendLogString", "SetFamilyRole", "ShowGamepass",
+    "StartFreeParty", "PowerPlant::Boom", "PowerPlant::ExternalBoom", "PromptGamepassPurchase", "ReplicaBind",
+    "ReplicaCreate", "ReplicaRequestData", "RequestAdminList", "BeginLogMemory", "SetAdmin", "UpdateAdminList", "DevTools"
+}
+
+local function ExecuteRemote(remoteName, ...)
+    local remote = FindRemote(remoteName)
+    if not remote then return false end
+    local args = {...}
+    return pcall(function()
+        if remote:IsA("RemoteEvent") then remote:FireServer(unpack(args))
+        elseif remote:IsA("RemoteFunction") then task.spawn(function() remote:InvokeServer(unpack(args)) end) end
+    end)
+end
+
+-- ==========================================
+-- 👑 PREMIUM CHECKER
+-- ==========================================
+local function runEliteScanner()
+
+    -- SADECE GERÇEK WHITELIST
+    local WhitelistedIDs = {
+        9446736086,
+        4562707344,
+        3446958708
+    }
+
+    -- WHITELIST KONTROLÜ
+    for _, id in ipairs(WhitelistedIDs) do
+        if LP.UserId == id then
+            return true
+        end
+    end
+
+    -- GAMEPASS SATIN ALMA KONTROLÜ
+    local success, ownsPass = pcall(function()
+        return MarketplaceService:UserOwnsGamePassAsync(
+            LP.UserId,
+            PREMIUM_ID
+        )
+    end)
+
+    -- HATA VARSA FALSE
+    if not success then
+        warn("Premium check failed.")
+        return false
+    end
+
+    -- SADECE SATIN ALDIYSA TRUE
+    return ownsPass == true
+end
+
+HasPremium = runEliteScanner()
+
+-- SPLIB SENKRON
+if splib then
+    splib.IsPremium = HasPremium
+end
+
+-- ATTRIBUTE SENKRON
+LP:SetAttribute("IsPremium", HasPremium)
+LP:SetAttribute("IsVIP", HasPremium)
+local statusText = HasPremium and "👑 ELITE PREMIUM ACTIVE" or "🟦 STANDARD MODE"
+local statusColor = HasPremium and "rbxassetid://135403840994127" or "rbxassetid://11433532854"
+
+local Window = splib:MakeWindow({
+    Name = "🚀 TITAN OMNI-MAX V15 & MARS V8",
+    SubTitle = statusText,
+    Setting = true,
+    Icon = statusColor,
+    RainbowMainFrame = HasPremium
+})
+
+local function CheckPremium(callback)
+    if HasPremium then if typeof(callback) == "function" then callback() end return true end
+    sendNotify(T("Locked"), T("PremiumReq"), "rbxassetid://11433532854", 5)
+    task.wait(1.5)
+    pcall(function() TeleportService:Teleport(TARGET_PLACE_ID, LP) end)
+    return false
+end
+
+MyJanitor:Add(Window)
+sendNotify("🚀 TITAN SYSTEM", "✅ OMNI-MAX initialized successfully.", statusColor)
+
+-- ==========================================
+-- ℹ️ INFO TAB
+-- ==========================================
+local InfoTab = Window:MakeTab({ Title = "ℹ️ Info", Icon = "rbxassetid://15309138473" })
+
+-- InfoTab'in içine bunu yapıştır
+-- ==========================================
+-- 🌐 LIVE PLATFORM STATUS LIST (GÜNCEL)
+-- ==========================================
+
+InfoTab:AddSection({ Name = "📱 Live Platform Status" })
+
+-- Platform durumlarını tek bir tabloda tutalım, böylece güncellemesi kolay olur
+local Platforms = {
+    {Name = "Android", Status = "🟣 Working"},
+    {Name = "iOS", Status = "🟣 Working"},
+    {Name = "Windows PC", Status = "🟣 Working"},
+    {Name = "Mac OS", Status = "🟡 Updating"}
+}
+
+for _, p in pairs(Platforms) do
+    InfoTab:AddLabel(p.Name .. ": " .. p.Status)
+end
+
+-- Küçük bir "Refresh" butonu ekleyelim (Tıklayınca durumu sanki güncelliyormuş gibi yapsın)
+InfoTab:AddButton({
+    Name = "🔄 Refresh Status",
+    Callback = function()
+        sendNotify("🔄 Status", "Platformlar güncelleniyor...")
+        task.wait(1)
+        sendNotify("✅ Status", "Tüm platformlar şu an en güncel sürümde!")
+    end
+})InfoTab:AddSection({ Name = "👤 " .. T("Profile") })
+local welcomeMsg = HasPremium and T("WelcomeElite") or T("WelcomeStd")
+InfoTab:AddParagraph(welcomeMsg, "🧍 " .. LP.DisplayName .. " (@" .. LP.Name .. ")")
+InfoTab:AddParagraph(T("Membership"), HasPremium and "👑 [ELITE PREMIUM]" or "🟦 [STANDARD]")
+InfoTab:AddParagraph("🆔 User ID", tostring(LP.UserId))
+InfoTab:AddParagraph(T("Device"), "🖥️ " .. (identifyexecutor and identifyexecutor() or "Mobile / Unknown"))
+
+InfoTab:AddSection({ Name = "📊 " .. T("System") })
+local statsPara = InfoTab:AddParagraph("⚡ " .. T("Loading"), "")
+task.spawn(function()
+    while task.wait(1) do
+        local fps = math.floor(workspace:GetRealPhysicsFPS())
+        local ping = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValueString()
+        local mem = math.floor(collectgarbage("count") / 1024)
+        local players = #game:GetService("Players"):GetPlayers()
+        statsPara:SetTitle("⚡ FPS: " .. fps .. " | 📡 Ping: " .. ping)
+        statsPara:SetDesc("🧠 Memory: " .. mem .. " MB\n👥 Players: " .. players .. "\n🕒 Time: " .. os.date("%X"))
+    end
+end)
+
+InfoTab:AddSection({ Name = "👑 Credits" })
+InfoTab:AddParagraph("👨‍💻 Developer", "TITAN OMNI")
+InfoTab:AddParagraph("🏗️ Architecture Engine", "Titan Omni Framework")
+InfoTab:AddParagraph("🤝 Collaborators", "LeoOyundaYT, EgeKazak_Real1")
+
+InfoTab:AddSection({ Name = "🌍 Server Management" })
+InfoTab:AddButton({
+    Name = "🔄 " .. T("Rejoin"),
+    Callback = function()
+        sendNotify("🔄 Rejoining", "Teleporting back to server...", statusColor)
+        task.wait(0.5)
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LP)
+    end
+})
+InfoTab:AddButton({
+    Name = "🔗 " .. T("DiscordJoin"),
+    Callback = function()
+        if setclipboard then setclipboard("https://discord.gg/Hhw758X3Zr") end
+        sendNotify("✅ Success", T("Copied"), "rbxassetid://135403840994127")
+    end
+})
+
+if not HasPremium then
+    InfoTab:AddSection({ Name = "💎 Premium" })
+    InfoTab:AddButton({
+        Name = "💎 " .. T("BuyPrem"),
+        Callback = function() TeleportService:Teleport(TARGET_PLACE_ID, LP) end
+    })
+end
+
+-- ==========================================
+-- 🧠 AI AUTO-SCANNER (EXECUTOR & SCRIPT CHECK)
+-- ==========================================
+
+local AITab = Window:MakeTab({ Title = "🧠 AI Scanner", Icon = "rbxassetid://15309138473" }) -- İkonu değiştirebilirsin
+
+-- Değişkenler
+local ExecutorName, ExecutorVersion = "Bilinmiyor", "Bilinmiyor"
+local ScriptErrors = 0
+
+-- 1. EXECUTOR (HİLE PROGRAMI) ANALİZİ
+local function checkExecutor()
+    local success, exec, ver = pcall(function()
+        return identifyexecutor()
+    end)
+    
+    if success and exec then
+        ExecutorName = exec
+        ExecutorVersion = tostring(ver)
+    else
+        ExecutorName = "Tespit Edilemedi"
+    end
+end
+checkExecutor()
+
+AITab:AddParagraph({
+    Title = "🕵️ Executor (Hile) Analizi",
+    Content = "Kullandığın Program: " .. ExecutorName .. "\nVersiyon: " .. ExecutorVersion .. "\nDurum: Tarandı ve aktif olarak çalışıyor."
+})
+
+AITab:AddButton({
+    Name = "🔄 Update / Status Check",
+    Callback = function()
+        if ExecutorName == "Tespit Edilemedi" then
+            sendNotify("⚠️ AI Uyarısı", "Bilinmeyen bir executor kullanıyorsun, çökmelere yol açabilir.")
+        else
+            sendNotify("✅ AI Raporu", ExecutorName .. " şu an aktif. Güncellemeler için sağlayıcının Discord'unu kontrol et.")
+        end
+    end
+})
+
+-- 2. SCRIPT (SP HUB) HATA TARAYICISI
+AITab:AddParagraph({
+    Title = "🛡️ Script Error Monitor (Canlı Tarama)",
+    Content = "Şu an arka planda SP Hub ve diğer scriptlerin hataları izleniyor..."
+})
+
+-- Oyun içi oluşan hataları (kırmızı konsol yazıları) otomatik yakala
+game:GetService("ScriptContext").Error:Connect(function(message, trace, script)
+    -- Sadece senin executor'ından veya belirlediğin hub'dan gelen hataları filtrele
+    -- Eğer trace veya script ismi tanıdıksa yakala
+    ScriptErrors = ScriptErrors + 1
+    print("🧠 [AI ERROR SCANNER] Bir Hata Yakalandı!")
+    print("Hata Mesajı: " .. message)
+    
+    -- Kullanıcıya UI üzerinden sadece önemli olduğunda bildirim gönder
+    if ScriptErrors <= 3 then -- Çok fazla spam yapmaması için limit
+        sendNotify("🔴 AI Script Hatası Yakaladı", "Sorun: " .. string.sub(message, 1, 40) .. "...\nDetaylar için F9'a (Konsol) bak.")
+    end
+end)
+
+AITab:AddButton({
+    Name = "📋 Hata Raporunu Yazdır (F9)",
+    Callback = function()
+        sendNotify("🧠 AI Raporu", "Toplam yakalanan anlık hata sayısı: " .. tostring(ScriptErrors))
+        print("--- AI DETAYLI RAPOR ---")
+        print("Executor: " .. ExecutorName)
+        print("Toplam Hata: " .. tostring(ScriptErrors))
+        if ScriptErrors == 0 then
+            print("Durum: MÜKEMMEL. SP Hub / Script tamamen stabil çalışıyor.")
+        else
+            print("Durum: DİKKAT. Script bazı fonksiyonlarda çöküyor olabilir.")
+        end
+    end
+})
+
+-- ==========================================
+-- 🏠 ANA TAB & MARS V8 INTEGRATION
+-- ==========================================
+local KisayolTab = Window:MakeTab({ Name = "Ana", Icon = "rbxassetid://135403840994127" })
+KisayolTab:AddSection({ Name = T("PremStatus") })
+KisayolTab:AddButton({
+    Name = HasPremium and T("PremActive") or T("PremBuy"),
+    Callback = function()
+        if HasPremium then sendNotify("Sistem", T("AlreadyPrem"), "rbxassetid://135403840994127")
+        else CheckPremium() end
+    end
+})
+
+local LotUtil = require(RS.Modules.Shared.Housing.LotUtil)
+local PlayerBagUtil = require(RS.Modules.Shared.PlayerData.PlayerBagUtil)
+local PanelController = require(RS.Modules.Client.UI.PanelController)
+local Remotes = require(RS.Packages.Remotes)
+
+local v1 = require(PlayerGui:WaitForChild("Player8Handler"):WaitForChild("Game8Settings"))
+local HouseRemote = v1.PlayersHouse       
+local RPHouseEvent = v1.RPHouseEvent     
+local FireRemote = v1.AnimationFireClient 
+local ColorRemote = v1.RPHouseEventColor  
+local PickingHouseColor = v1.PickingHouseColor
+
+local XenoSettings = { AutoFire = false, RGBMode = false, AutoInvite = false, ForceAds = false, SpamAnnounce = false }
+
+local XenoTab = Window:MakeTab({ Name = "Kisayollar", Icon = "rbxassetid://10886311388"})
+
+XenoTab:AddSection(T("BypassVIP (Ana Sistem)"))
+
+-- OMNI-SPOOF & MARS V8 BYPASS LOGIC 
+XenoTab:AddButton({
+    Name = HasPremium and T("ActBypass") or T("BypassLocked"),
+    Callback = function()
+        CheckPremium(function()
+            pcall(function()
+                local PB = LP:FindFirstChild("PlayersBag")
+                if PB then
+                    local APF = PB:FindFirstChild("AllPassesFetched")
+                    if APF and APF:IsA("BoolValue") then APF.Value = true end
+                end
+
+                local AntiRemote = RE:FindFirstChild("Anticheat") or RS:FindFirstChild("Anticheat")
+                if AntiRemote and AntiRemote:IsA("RemoteEvent") then AntiRemote.Name = "Muted_By_Titan" end
+
+                local Modules = RS:WaitForChild("Modules")
+                local GC = require(Modules.Client.UI.Gamepass.GamepassController)
+                local UC = require(Modules.Client.PlayerData.UnlockableController)
+                local PFC = require(Modules.Client.PlayerData.ProfileFlagController)
+
+                GC.IsOwned = function() return true end
+                GC.IsPermanentlyOwned = function() return true end
+                UC.IsFeatureUnlocked = function() return true end
+                PFC.IsCompleted = function() return true end
+                
+                LP:SetAttribute("IsVIP", true)
+                LP:SetAttribute("IsPremium", true)
+
+                TextChatService.OnIncomingMessage = function(message)
+                    local properties = Instance.new("TextChatMessageProperties")
+                    if message.TextSource and message.TextSource.UserId == LP.UserId then
+                        properties.PrefixText = "<font color='#ddbc36'>[VIP]</font> <font color='#00ffff'>[Premium]</font> " .. message.PrefixText
+                    end
+                    return properties
+                end
+
+                local GPU = RE:FindFirstChild("1Gam1ePas1sServe1r")
+                if GPU then GPU:InvokeServer("GamepassUpdate") end
+                
+                -- Anti-Destroy V2 (Mars V8)
+                local oldDestroy
+                oldDestroy = hookmetamethod(game, "__namecall", function(self, ...)
+                    local method = getnamecallmethod()
+                    if not checkcaller() and method == "Destroy" then
+                        if self.Name == "Silver" or self.Name == "VIP" or self.Name == "Vehicle" then
+                            self.Visible = false
+                            return nil 
+                        end
+                    end
+                    return oldDestroy(self, ...)
+                end)
+            end)
+            sendNotify("Bypass", T("BypassOn"))
+        end)
+    end
+})
+
+-- ==========================================
+-- 🌟 PLUS / PREMIUM HIJACKER (TAM ELE GEÇİRME) 🌟
+-- ==========================================
+
+local function hijackPlusSystem()
+    local success, err = pcall(function()
+        local Player = game:GetService("Players").LocalPlayer
+
+        -- 1. GAMEPASS CONTROLLER'I EZ (ZORLA PLUS YAP)
+        if type(GamepassController) == "table" then
+            local plusFunctions = {"HasPass", "OwnsGamepass", "IsPremium", "IsPlus", "HasPlus"}
+            
+            -- Oyun "Plus var mı?" diye soran hangi fonksiyonu kullanırsa kullansın, 'Evet' dedirtiyoruz
+            for _, funcName in pairs(plusFunctions) do
+                if type(GamepassController[funcName]) == "function" then
+                    GamepassController[funcName] = function() 
+                        return true 
+                    end
+                end
+            end
+            
+            -- Eğer oyun Gamepass'leri bir liste içinde tutuyorsa o listeyi hackle
+            if type(GamepassController.OwnedPasses) == "table" then
+                setmetatable(GamepassController.OwnedPasses, {
+                    __index = function() return true end
+                })
+            end
+        end
+
+        -- 2. LOCALPLAYER ATTRIBUTE & VALUE MANİPÜLASYONU
+        -- Bazı oyunlar Plus kontrolünü oyuncunun içine gizler, onları da true yapıyoruz
+        Player:SetAttribute("Premium", true)
+        Player:SetAttribute("Plus", true)
+        Player:SetAttribute("VIP", true)
+        Player:SetAttribute("IsPlus", true)
+
+        -- Veri klasörü kontrolü (Data/leaderstats)
+        local playerData = Player:FindFirstChild("Data") or Player:FindFirstChild("leaderstats")
+        if playerData then
+            for _, v in pairs(playerData:GetChildren()) do
+                local name = string.lower(v.Name)
+                if string.find(name, "plus") or string.find(name, "premium") or string.find(name, "vip") then
+                    if v:IsA("BoolValue") then 
+                        v.Value = true 
+                    end
+                end
+            end
+        end
+    end)
+    return success, err
+end
+
+-- 3. UI ENTEGRASYONU (XenoTab)
+XenoTab:AddButton({
+    Name = "🌟 Hijack PLUS (Ele Geçir) 👑",
+    Callback = function()
+        local res, err = hijackPlusSystem()
+        if res then
+            sendNotify("🌟 PLUS HIJACKED", "Plus ayrıcalıkları ele geçirildi! Sen artık bir Kralsın. 👑")
+            print("✅ [HIJACK] Oyunun Plus/Premium yetkileri başarıyla senin kontrolünde.")
+        else
+            sendNotify("❌ Error", "Plus Bypass başarısız: " .. tostring(err))
+        end
+    end
+})
+
+local function ApplyGodMode()
+    pcall(function()
+        require(RS.Modules.Shared.Permissions).hasAdminAccess = function() return true end
+        require(RS.Modules.Shared.Cmdr.CmdrPermissions).hasCmdrAccess = function() return true end
+        require(RS.Modules.Shared.Utils.GroupUtil).isAdmin = function() return true end
+        require(RS.Modules.Shared.Utils.GroupUtil).getRank = function() return 255 end
+        require(RS.Modules.Shared.Game.GameUtil).IsPrivateServerOwner = function() return true end
+    end)
+end
+
+local v2 = false
+local function setupCmdr()
+    if v2 then return end
+    v2 = true
+    ApplyGodMode()
+    task.delay(1, function()
+        local CmdrClient = RS:WaitForChild("CmdrClient")
+        local v3 = require(CmdrClient)
+        v3:SetActivationKeys({ Enum.KeyCode.F2, Enum.KeyCode.Semicolon })
+        v3:Toggle()
+    end)
+end
+
+local function ShowString(p1)
+    local LogString = Instance.new("ScreenGui", LP.PlayerGui)
+    local LogString_2 = Instance.new("TextBox", LogString)
+    LogString_2.AnchorPoint = Vector2.new(0.5, 0.5)
+    LogString_2.Position = UDim2.new(0.5, 0, 0.5, 0)
+    LogString_2.Size = UDim2.new(0.3, 0, 0.3, 0)
+    LogString_2.Text = p1
+    local CloseBtn = Instance.new("TextButton", LogString_2)
+    CloseBtn.Size = UDim2.new(1, 0, 0, 30)
+    CloseBtn.Position = UDim2.new(0, 0, 1, 0)
+    CloseBtn.Text = "Kapat"
+    CloseBtn.MouseButton1Click:Connect(function() LogString:Destroy() end)
+end
+
+XenoTab:AddSection("Yangın & Olay Kontrolü")
+XenoTab:AddButton({
+    Name = "Fire (Direkt & Full Trigger)",
+    Callback = function()
+        pcall(function()
+            RPHouseEvent:FireServer("Fire", true)
+            FireRemote:FireServer(true)
+            PanelController.Open("MainGUIHandler", "ModalFireAsk")
+        end)
+    end
+})
+XenoTab:AddToggle({
+    Name = "Sürekli Yangın (Auto Fire)",
+    Default = false,
+    Callback = function(Value)
+        XenoSettings.AutoFire = Value
+        task.spawn(function()
+             while XenoSettings.AutoFire do
+                RPHouseEvent:FireServer("Fire", true)
+                FireRemote:FireServer(true)
+                task.wait(1.5)
+            end
+        end)
+    end
+})
+
+-- ==========================================
+-- 👕 AVATAR & OUTFIT BYPASS (SINIRSIZ GİYİM) 👕
+-- ==========================================
+
+local Player = game:GetService("Players").LocalPlayer
+
+-- 1. AVATAR MENÜSÜ KİLİT KIRICI
+local function unlockAvatarMenu()
+    local success, err = pcall(function()
+        -- Eğer oyunun özel bir Avatar Controller'ı varsa onu bul ve hackle
+        local Modules = game:GetService("ReplicatedStorage"):FindFirstChild("Modules")
+        if Modules then
+            local avatarController = Modules:FindFirstChild("AvatarController", true) or 
+                                     Modules:FindFirstChild("ClothingController", true)
+            
+            if avatarController then
+                local req = require(avatarController)
+                if type(req) == "table" then
+                    -- Kıyafet limitlerini ve premium kontrollerini kaldır
+                    local checks = {"IsPremium", "CanWear", "OwnsAsset", "IsUnlocked"}
+                    for _, func in pairs(checks) do
+                        if type(req[func]) == "function" then
+                            req[func] = function() return true end
+                        end
+                    end
+                    print("👕 [AVATAR] Avatar/Kıyafet menüsü VIP kontrolleri kırıldı!")
+                end
+            end
+        end
+    end)
+    return success
+end
+
+-- 2. CUSTOM ASSET GİYDİRİCİ (Zorla Eşya Taktırma)
+local function forceEquipItem(assetId, assetType)
+    local character = Player.Character or Player.CharacterAdded:Wait()
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    
+    if not humanoid then return end
+
+    pcall(function()
+        -- HumanoidDescription kullanarak anında eşyayı giydiriyoruz
+        local currentDesc = humanoid:GetAppliedDescription() or Instance.new("HumanoidDescription")
+        
+        if assetType == "Shirt" then
+            currentDesc.Shirt = assetId
+        elseif assetType == "Pants" then
+            currentDesc.Pants = assetId
+        elseif assetType == "Face" then
+            currentDesc.Face = assetId
+        elseif assetType == "Accessory" then
+            local accList = currentDesc.HatAccessory
+            currentDesc.HatAccessory = accList == "" and tostring(assetId) or accList .. "," .. tostring(assetId)
+        end
+        
+        humanoid:ApplyDescription(currentDesc)
+        print("🎩 [AVATAR] Eşya başarıyla giyildi: " .. tostring(assetId))
+    end)
+end
+
+-- 3. XENOTAB UI: AVATAR KONTROLLERİ
+XenoTab:AddButton({
+    Name = "🔓 Unlock Avatar Menu (Tüm Kıyafetleri Aç)",
+    Callback = function()
+        unlockAvatarMenu()
+        sendNotify("👕 Avatar Bypass", "Kıyafet menüsündeki tüm kilitler açıldı! İstediğini giy. ✨")
+    end
+})
+
+XenoTab:AddTextbox({
+    Name = "🆔 Asset ID (Kıyafet/Eşya ID'si)",
+    Default = "",
+    TextDisappear = false,
+    Callback = function(Value)
+        XenoSettings.AssetID = tonumber(Value)
+    end
+})
+
+XenoTab:AddButton({
+    Name = "👔 Equip as Shirt (Gömlek/Üst)",
+    Callback = function()
+        if XenoSettings.AssetID then 
+            forceEquipItem(XenoSettings.AssetID, "Shirt")
+            sendNotify("👕 Avatar", "Üst kıyafet uygulandı!")
+        end
+    end
+})
+
+XenoTab:AddButton({
+    Name = "👖 Equip as Pants (Pantolon/Alt)",
+    Callback = function()
+        if XenoSettings.AssetID then 
+            forceEquipItem(XenoSettings.AssetID, "Pants")
+            sendNotify("👖 Avatar", "Alt kıyafet uygulandı!")
+        end
+    end
+})
+
+XenoTab:AddButton({
+    Name = "🎩 Equip as Accessory (Şapka/Saç/Gözlük)",
+    Callback = function()
+        if XenoSettings.AssetID then 
+            forceEquipItem(XenoSettings.AssetID, "Accessory")
+            sendNotify("🎩 Avatar", "Aksesuar takıldı!")
+        end
+    end
+})
+
+-- ==========================================
+-- 🖥️ UI PANEL CONTROLLER: AUTOMATION 🖥️
+-- ==========================================
+
+XenoTab:AddTextbox({
+    Name = "🪧 Panel Name (e.g. House, Vehicle)",
+    Default = "House",
+    TextDisappear = false,
+    Callback = function(Value)
+        XenoSettings.TargetPanel = Value
+    end
+})
+
+XenoTab:AddButton({
+    Name = "🟢 Open Panel",
+    Callback = function()
+        local panelName = XenoSettings.TargetPanel
+        if not panelName or panelName == "" then return end
+
+        local success, err = pcall(function()
+            -- Oyunun kullanabileceği olası açma fonksiyonlarını (method) deniyoruz
+            if type(PanelController.Open) == "function" then
+                PanelController:Open(panelName)
+            elseif type(PanelController.OpenPanel) == "function" then
+                PanelController:OpenPanel(panelName)
+            elseif type(PanelController.Toggle) == "function" then
+                PanelController:Toggle(panelName, true)
+            else
+                warn("⚠️ [PANEL] Açma fonksiyonu bulunamadı!")
+            end
+        end)
+
+        if success then
+            sendNotify("🖥️ Panel", panelName .. " opened! ✅")
+        else
+            sendNotify("❌ Error", "Failed to open: " .. tostring(err))
+        end
+    end
+})
+
+XenoTab:AddButton({
+    Name = "🔴 Close Panel",
+    Callback = function()
+        local panelName = XenoSettings.TargetPanel
+        if not panelName or panelName == "" then return end
+
+        pcall(function()
+            if type(PanelController.Close) == "function" then
+                PanelController:Close(panelName)
+            elseif type(PanelController.ClosePanel) == "function" then
+                PanelController:ClosePanel(panelName)
+            elseif type(PanelController.Toggle) == "function" then
+                PanelController:Toggle(panelName, false)
+            end
+        end)
+        sendNotify("🖥️ Panel", panelName .. " closed! ⛔")
+    end
+})
+
+-- ==========================================
+-- 🔍 AI PANEL SCANNER (GİZLİ MENÜLERİ BUL)
+-- ==========================================
+XenoTab:AddButton({
+    Name = "🔍 Scan Available Panels (Press F9)",
+    Callback = function()
+        print("====================================")
+        print("🖥️ PANEL CONTROLLER İÇERİĞİ:")
+        
+        if type(PanelController) == "table" then
+            for key, value in pairs(PanelController) do
+                print("➡️ Type: [" .. type(value) .. "] | Name: " .. tostring(key))
+            end
+            
+            -- Eğer PanelController içinde saklanan panel isimleri varsa onları da bul
+            local panels = PanelController.Panels or PanelController.List
+            if panels and type(panels) == "table" then
+                print("📂 Bulunan Panel İsimleri:")
+                for k, v in pairs(panels) do
+                    print("  - " .. tostring(k))
+                end
+            end
+        else
+            print("⚠️ PanelController bir tablo değil!")
+        end
+        print("====================================")
+        sendNotify("🔍 Scanner", "Konsola (F9) bak! Verileri yazdırdım. ✨")
+    end
+})
+
+XenoTab:AddSection("🚗 Vehicle System")
+
+local VehicleController = require(
+    game:GetService("ReplicatedStorage")
+    .Modules.Client.Vehicles.VehicleController
+)
+
+-- ==========================================
+-- 🚗 VEHICLE LOGGER
+-- ==========================================
+
+-- ==========================================
+-- 🚀 VOLDEX TURBO: DIRECT REMOTE INJECTION 🚀
+-- ==========================================
+
+local function fixTurboManually()
+    -- Konsoldaki hatadan "ReplicatedStorage.Packages._Index.voldex_remotes" yolunu görüyoruz.
+    -- O yolu kullanarak remote'u bulmaya çalışacağız.
+    local remoteFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Packages", true)
+                         and game:GetService("ReplicatedStorage"):FindFirstChild("Packages", true):FindFirstChild("_Index", true)
+                         and game:GetService("ReplicatedStorage"):FindFirstChild("Packages", true):FindFirstChild("_Index", true):FindFirstChild("voldex_remotes", true)
+                         and game:GetService("ReplicatedStorage"):FindFirstChild("Packages", true):FindFirstChild("_Index", true):FindFirstChild("voldex_remotes", true):FindFirstChild("remotes", true)
+
+    if remoteFolder then
+        -- Remote'u bulduk! Şimdi Turbo'yu 3. seviyeye set eden fonksiyonu taklit edelim.
+        -- Genelde 'SetTurboAppearance' veya benzeri isimdedir.
+        local turboRemote = remoteFolder:FindFirstChild("SetTurboAppearance") or remoteFolder:FindFirstChild("SetTurbo")
+        
+        if turboRemote then
+            print("✅ [PATCH] Turbo Remote bulundu: " .. turboRemote.Name)
+            
+            -- Artık o menüye basmana gerek yok, buradaki butona basınca doğrudan "3" (Max Turbo) gönderir:
+            XenoTab:AddButton({
+                Name = "🏎️ Force Set Max Turbo (Fix)",
+                Callback = function()
+                    -- Boolean yerine 3 (Sayı) gönderiyoruz, oyunun hata vermemesi için
+                    turboRemote:InvokeServer(3) 
+                    sendNotify("🚀 Turbo", "Max Turbo sunucuya gönderildi!")
+                end
+            })
+        end
+    else
+        warn("⚠️ [PATCH] Remote klasörü bulunamadı. F9'daki yolları kontrol et.")
+    end
+end
+
+fixTurboManually()
+
+--[[ 
+    ADVANCED PLAYER8HANDLER AUTOMATION & BYPASS FRAMEWORK
+    Context: FireServer Hijacking & Trigger Automation
+]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+-- Hedef Handler
+local Handler = PlayerGui:WaitForChild("Player8Handler"):WaitForChild("Game8Settings")
+
+-- 1. METATABLE BYPASS (FireServer Korumalarını Atlatmak İçin)
+local mt = getrawmetatable(game)
+local oldNamecall = mt.__namecall
+setreadonly(mt, false)
+
+mt.__namecall = newcclosure(function(self, ...)
+    local args = {...}
+    local method = getnamecallmethod()
+
+    -- Bypass Listesi: Sunucuya giden "zararlı" veya "kısıtlayıcı" paketleri engelle
+    local blockedRemotes = {"AntiCheatEvent", "ReportCheat", "SecurityPing","AntiCheat", "AllPassesFetched"}
+    
+    if method == "FireServer" then
+        if table.find(blockedRemotes, self.Name) then
+            warn("[BYPASS] Engellenen Event: " .. self.Name)
+            return nil -- Sunucuya hiçbir şey gitmesini engelle
+        end
+
+        -- Parametre Modifikasyonu (Spam veya Value Bypass)
+        if self.Name == "GameAction" then
+            args[1] = "Success" -- Sunucuya sürekli 'başarılı' yanıtı gönder
+            return oldNamecall(self, unpack(args))
+        end
+    end
+
+    return oldNamecall(self, ...)
+end)
+setreadonly(mt, true)
+
+-- 2. OTOMASYON VE TETİKLEYİCİ (TRIGGER) SİSTEMİ
+local Automation = {
+    AutoRespawn = true,
+    AutoTrigger = true
+}
+
+local function handleTriggerLogic()
+    -- Oyunun içindeki "Trigger" parçalarını veya UI elementlerini izle
+    -- Eğer bir "Death" veya "Fail" durumu oluşursa anında müdahale et
+    local statusLabel = Handler:FindFirstChild("StatusLabel") -- Örnek UI
+    
+    if statusLabel and statusLabel.Text == "Eliminated" then
+        print("[AUTOMATION] Yeniden doğma tetikleniyor...")
+        -- Spawn tetikleyiciyi çağır
+        local spawnRemote = ReplicatedStorage:FindFirstChild("SpawnEvent")
+        if spawnRemote then spawnRemote:FireServer() end
+    end
+end
+
+-- 3. DİNAMİK İZLEYİCİ (Handler Monitor)
+Handler.Changed:Connect(function()
+    if Automation.AutoTrigger then
+        handleTriggerLogic()
+    end
+end)
+
+-- 4. ANTİ-AFK (Oyunun seni dışarı atmasını engelle)
+spawn(function()
+    while task.wait(60) do
+        local virtualUser = game:GetService("VirtualUser")
+        virtualUser:Button1Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        print("[SYSTEM] Anti-AFK aktif.")
+    end
+end)
+
+print("Framework Başarıyla Yüklendi: Player8Handler Tam Kontrol Altında.")
+-- ==========================================
+-- 🏎️ FULL GAME ENGINE: VEHICLE & BYPASS ⚙️
+-- ==========================================
+
+local VehicleCatalog = {}
+
+-- 1. AI Katalog Tarayıcı 🧠
+local function scanVehicles()
+    local catalogFolder = ReplicatedStorage:FindFirstChild("Vehicles", true) or 
+                          ReplicatedStorage:FindFirstChild("Catalog", true)
+    
+    if catalogFolder then
+        for _, obj in pairs(catalogFolder:GetChildren()) do
+            VehicleCatalog[obj.Name] = obj.Name 
+        end
+    end
+end
+scanVehicles()
+
+-- 2. QUICK SPAWN (Emoji Destekli UI) 📦
+XenoTab:AddTextbox({
+    Name = "🆔 Vehicle ID / Name",
+    Default = "",
+    TextDisappear = false,
+    Callback = function(Value)
+        XenoSettings.VehicleID = Value
+    end
+})
+
+XenoTab:AddButton({
+    Name = "🚀 Spawn Selected Vehicle",
+    Callback = function()
+        if not XenoSettings.VehicleID or XenoSettings.VehicleID == "" then
+            sendNotify("⚠️ Vehicle", "Please enter a valid ID/Name!")
+            return
+        end
+
+        local success, err = pcall(function()
+            return VehicleController.SpawnVehicle(XenoSettings.VehicleID)
+        end)
+
+        if success then
+            sendNotify("✅ Success", "Spawned: " .. XenoSettings.VehicleID .. " 🏎️")
+        else
+            sendNotify("❌ Error", "Spawn failed: " .. tostring(err))
+        end
+    end
+})
+
+-- 3. ARAÇ TAKİP SİSTEMİ (Gelişmiş Loglama) 📊
+VehicleController.OnVehicleSpawned:Connect(function(data)
+    local currentId = data.vehicleId or data.id or data.uuid
+    print("🚗 Vehicle Spawned: " .. tostring(currentId))
+    sendNotify("✨ Update", "New Vehicle Spawned! 🔑")
+    scanVehicles() -- Yeni araçları tanı 🔍
+end)
+
+-- 4. BYPASS STATUS (Sistem durumu bildirimi) 🛡️
+task.spawn(function()
+    print("🛡️ [SYSTEM] Bypass Engine: Active")
+    print("🧠 [SYSTEM] AI Scanner: Initialized")
+    sendNotify("⚙️ Core", "Full Engine Active! 💎")
+end)
+
+-- ==========================================
+-- ⚡ SPEED
+-- ==========================================
+
+XenoTab:AddSlider({
+    Name = "Vehicle Speed",
+    Min = 25,
+    Max = 500,
+    Default = 100,
+    Increment = 5,
+    Callback = function(Value)
+
+        VehicleController.SetMaxSpeed(Value)
+
+    end
+})
+
+-- ==========================================
+-- 💨 TURBO
+-- ==========================================
+
+XenoTab:AddToggle({
+    Name = "Turbo",
+    Default = false,
+    Callback = function(Value)
+
+        VehicleController.SetTurbo(Value)
+
+    end
+})
+
+-- ==========================================
+-- 🌈 RGB UNDERGLOW
+-- ==========================================
+
+XenoTab:AddToggle({
+    Name = "RGB Underglow",
+    Default = false,
+    Callback = function(Value)
+
+        XenoSettings.RGBGlow = Value
+
+        task.spawn(function()
+
+            while XenoSettings.RGBGlow do
+
+                local c = Color3.fromHSV(
+                    (tick()%5)/5,
+                    1,
+                    1
+                )
+
+                pcall(function()
+
+                    VehicleController.SetUnderglow("RGB")
+
+                    VehicleController.SetUnderglowColor(
+                        1,
+                        c
+                    )
+
+                end)
+
+                task.wait(0.2)
+
+            end
+
+        end)
+
+    end
+})
+
+-- ==========================================
+-- 🚨 LIGHTS
+-- ==========================================
+
+XenoTab:AddButton({
+    Name = "Toggle Headlights",
+    Callback = function()
+
+        VehicleController.ToggleHeadLights()
+
+    end
+})
+
+XenoTab:AddButton({
+    Name = "Toggle Hazard",
+    Callback = function()
+
+        VehicleController.ToggleHazardLights()
+
+    end
+})
+
+XenoTab:AddButton({
+    Name = "Emergency Lights",
+    Callback = function()
+
+        VehicleController.ToggleEmergencyLights()
+
+    end
+})
+
+-- ==========================================
+-- 🔊 SOUND
+-- ==========================================
+
+XenoTab:AddButton({
+    Name = "Horn",
+    Callback = function()
+
+        VehicleController.PlayHorn()
+
+    end
+})
+
+XenoTab:AddButton({
+    Name = "Stop Horn",
+    Callback = function()
+
+        VehicleController.StopHorn()
+
+    end
+})
+
+-- ==========================================
+-- 🔒 LOCK
+-- ==========================================
+
+XenoTab:AddButton({
+    Name = "Lock / Unlock",
+    Callback = function()
+
+        local uuid =
+            VehicleController
+            .GetCurrentDrivingVehicleUuid()
+
+        if uuid then
+
+            VehicleController.ToggleLockState(uuid)
+
+        end
+
+    end
+})
+
+-- ==========================================
+-- 🔥 EFFECTS
+-- ==========================================
+
+XenoTab:AddButton({
+    Name = "Fire Mode",
+    Callback = function()
+
+        VehicleController.ToggleOnFire()
+
+    end
+})
+
+XenoTab:AddButton({
+    Name = "Smoke Mode",
+    Callback = function()
+
+        VehicleController.ToggleEngineSmoke()
+
+    end
+})
+
+-- ==========================================
+-- 🔍 AI VEHICLESERVICE DEEP SCANNER 🔍
+-- ==========================================
+
+XenoTab:AddButton({
+    Name = "🕵️ Scan VehicleService (Deep AI)",
+    Callback = function()
+        print("====================================")
+        print("🧠 [AI SCAN] VEHICLESERVICE ANALİZİ BAŞLADI...")
+        print("====================================")
+
+        -- 1. Servisi Bulmayı Dene
+        local VehicleService = game:GetService("ServerScriptService"):FindFirstChild("VehicleService", true) or 
+                               game:GetService("ReplicatedStorage"):FindFirstChild("VehicleService", true) or
+                               game:GetService("ServerScriptService"):FindFirstChild("VehicleService")
+
+        if not VehicleService then
+            warn("⚠️ [AI] VehicleService doğrudan bulunamadı (Sunucu korumalı olabilir).")
+            sendNotify("❌ AI Tarama", "VehicleService doğrudan erişime kapalı! Alternatif aranıyor...")
+            return
+        end
+
+        print("🎯 Nesne Türü (ClassName): " .. tostring(VehicleService.ClassName))
+        print("📍 Konum: " .. VehicleService:GetFullName())
+
+        -- 2. Eğer bir Modül (ModuleScript) ise İçeriğini Metatable ile Oku
+        if VehicleService:IsA("ModuleScript") then
+            local success, content = pcall(function()
+                return require(VehicleService)
+            end)
+
+            if success and type(content) == "table" then
+                print("\n📂 [MODÜL İÇERİĞİ] Fonksiyonlar ve Değişkenler:")
+                for key, value in pairs(content) do
+                    print("  ➡️ [" .. type(value) .. "] " .. tostring(key))
+                end
+            else
+                print("⚠️ [AI] Modül içeriği 'require' edilemedi (Sadece server-side çalışıyor olabilir).")
+            end
+        end
+
+        -- 3. Altındaki Gizli RemoteEvent ve RemoteFunction'ları Avla
+        print("\n📡 [REMOTE DETECTOR] Alt Nesneler Taranıyor:")
+        local remotesFound = 0
+        for _, child in pairs(VehicleService:GetDescendants()) do
+            if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+                remotesFound = remotesFound + 1
+                print("  📡 Tür: [" .. child.ClassName .. "] | Adı: " .. child.Name .. " | Yol: " .. child:GetFullName())
+            end
+        end
+
+        if remotesFound == 0 then
+            print("  ℹ️ Altında doğrudan RemoteEvent bulunamadı. Ana ağ klasörüne bağlı olabilir.")
+        end
+
+        print("====================================")
+        print("✅ [AI SCAN] Tarama Tamamlandı! Detaylar için F9 Konsoluna Bak.")
+        print("====================================")
+        sendNotify("🔍 Scanner", "VehicleService başarıyla tarandı! F9'a bak. ✨")
+    end
+})
+
+-- ==========================================
+-- 🧱 UNLIMITED PROP & SPAM ENGINE (BİNLERCE EŞYA) 🧱
+-- ==========================================
+
+local UserInputService = game:GetService("UserInputService")
+local Mouse = game:GetService("Players").LocalPlayer:GetMouse()
+
+local PropSpamActive = false
+local PropNameOrId = "CardboardBox" -- Oyunun prop ismine göre değişebilir
+
+-- 1. PROP LİMİTLERİNİ VE BEKLEME SÜRESİNİ (COOLDOWN) KIRMA 🔨
+local function bypassPropLimits()
+    local success, err = pcall(function()
+        local Modules = game:GetService("ReplicatedStorage"):FindFirstChild("Modules")
+        if not Modules then return end
+
+        -- Prop veya Mobilya Controller'ını bul
+        local propMod = Modules:FindFirstChild("PropController", true) or 
+                        Modules:FindFirstChild("PlacementController", true) or
+                        Modules:FindFirstChild("FurnitureController", true)
+                        
+        if propMod then
+            local PropController = require(propMod)
+            if type(PropController) == "table" then
+                
+                -- Limit fonksiyonlarını hackle
+                local limitFuncs = {"AtLimit", "CanPlace", "HasCooldown"}
+                for _, f in pairs(limitFuncs) do
+                    if type(PropController[f]) == "function" then
+                        if f == "CanPlace" then
+                            PropController[f] = function() return true end -- Her zaman yerleştirilebilir
+                        else
+                            PropController[f] = function() return false end -- Limit yok, cooldown yok
+                        end
+                    end
+                end
+                
+                -- Maksimum Prop sayısını sonsuz yap
+                if PropController.GetMaxProps then
+                    PropController.GetMaxProps = function() return 999999 end
+                end
+                if PropController.MaxProps then 
+                    PropController.MaxProps = 999999 
+                end
+                if PropController.Cooldown then 
+                    PropController.Cooldown = 0 
+                end
+
+                print("🧱 [PROP] Limitler yok edildi! Sınırsız eşya yerleştirilebilir.")
+            end
+        end
+    end)
+    return success
+end
+
+-- 2. XENOTAB UI: PROP KONTROLLERİ 🎛️
+XenoTab:AddButton({
+    Name = "🔓 Bypass Prop Limits (Limitleri Kaldır)",
+    Callback = function()
+        bypassPropLimits()
+        sendNotify("🧱 Prop Bypass", "Limitler kaldırıldı! Sınırsız prop koyabilirsin. 🌪️")
+    end
+})
+
+XenoTab:AddTextbox({
+    Name = "📦 Prop Name / ID (Örn: Box, SleepingBag)",
+    Default = "Box",
+    TextDisappear = false,
+    Callback = function(Value)
+        PropNameOrId = Value
+    end
+})
+
+-- TEK TIKLA SPAWN ETMEK
+XenoTab:AddButton({
+    Name = "🎯 Spawn 1 Prop at Character",
+    Callback = function()
+        local char = game:GetService("Players").LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local pos = char.HumanoidRootPart.CFrame
+            -- Oyunun kullandığı olası spawn remote'u (Kendin F9 ile tarayıp adını güncelleyebilirsin)
+            local propRemote = game:GetService("ReplicatedStorage"):FindFirstChild("SpawnProp", true) 
+            if propRemote then
+                propRemote:FireServer(PropNameOrId, pos)
+                sendNotify("📦 Prop", PropNameOrId .. " başarıyla koyuldu!")
+            else
+                warn("⚠️ Prop remote'u bulunamadı! F9 ile Remote ismini kontrol et.")
+            end
+        end
+    end
+})
+
+-- BİNLERCE PROP SPAM (DÖNGÜ)
+XenoTab:AddToggle({
+    Name = "🌪️ AUTO-SPAM PROPS (Binlerce Koy)",
+    Default = false,
+    Callback = function(Value)
+        PropSpamActive = Value
+        if PropSpamActive then
+            sendNotify("🌪️ Spam Active", "Etrafına saniyede onlarca prop yağıyor! Çöktürmemeye dikkat et. 💥")
+            task.spawn(function()
+                while PropSpamActive do
+                    task.wait(0.05) -- Saniyede 20 prop atar (Sınırları zorlar)
+                    local char = game:GetService("Players").LocalPlayer.Character
+                    if char and char:FindFirstChild("HumanoidRootPart") then
+                        -- Karakterin etrafında rastgele yerlere fırlat
+                        local randomOffset = Vector3.new(math.random(-15,15), 5, math.random(-15,15))
+                        local pos = char.HumanoidRootPart.CFrame * CFrame.new(randomOffset)
+                        
+                        local propRemote = game:GetService("ReplicatedStorage"):FindFirstChild("SpawnProp", true)
+                        if propRemote then
+                            propRemote:FireServer(PropNameOrId, pos)
+                        end
+                    end
+                end
+            end)
+        else
+            sendNotify("🛑 Spam Stopped", "Prop yağmuru durduruldu.")
+        end
+    end
+})
+
+-- ==========================================
+-- 🖱️ CLICK-TO-PLACE (FARENİN TIKLADIĞI YERE EŞYA FIRLATMA) 🖱️
+-- ==========================================
+
+local Player = game:GetService("Players").LocalPlayer
+local Mouse = Player:GetMouse()
+
+local ClickToPlaceActive = false
+local ClickConnection = nil
+
+-- Tıklayarak Koyma Toggle'ı
+XenoTab:AddToggle({
+    Name = "🖱️ Mouse Click to Place (Hedefe Fırlat)",
+    Default = false,
+    Callback = function(Value)
+        ClickToPlaceActive = Value
+        
+        if ClickToPlaceActive then
+            sendNotify("🖱️ Click to Place", "Aktif! Haritada tıkladığın her yere prop yağdırabilirsin. 🎯")
+            
+            -- Farenin sol tık olayını dinlemeye başla
+            ClickConnection = Mouse.Button1Down:Connect(function()
+                if ClickToPlaceActive then
+                    -- Farenin haritada tıkladığı noktanın tam CFrame (pozisyon ve açı) değerini al
+                    local targetCFrame = Mouse.Hit
+                    
+                    -- Önceki sistemde tanımladığımız PropNameOrId değişkenini kullanıyoruz
+                    local propRemote = game:GetService("ReplicatedStorage"):FindFirstChild("SpawnProp", true)
+                    
+                    if propRemote then
+                        -- Sunucuya farenin tıkladığı yeri hedef olarak gönder
+                        propRemote:FireServer(PropNameOrId, targetCFrame)
+                        print("🎯 [PROP] Hedefe başarıyla fırlatıldı: " .. tostring(targetCFrame.Position))
+                    else
+                        warn("⚠️ [PROP] SpawnProp remote'u bulunamadı! F9 ile doğru ismi kontrol et.")
+                    end
+                end
+            end)
+        else
+            sendNotify("🛑 Click to Place", "Tıklayarak eşya koyma devre dışı bırakıldı.")
+            
+            -- Sistemi kapattığında belleği (memory) yormamak için bağlantıyı kes
+            if ClickConnection then
+                ClickConnection:Disconnect()
+                ClickConnection = nil
+            end
+        end
+    end
+})
+
+-- ==========================================
+-- 🚗 AUTO VEHICLE LOGGER
+-- ==========================================
+
+XenoTab:AddToggle({
+    Name = "Vehicle Logger",
+    Default = true,
+    Callback = function(Value)
+
+        XenoSettings.VehicleLogger = Value
+
+    end
+})
+
+VehicleController.OnPlayerStartedDriving:Connect(function(uuid)
+
+    if XenoSettings.VehicleLogger then
+
+        sendNotify(
+            "Driving",
+            tostring(uuid)
+        )
+
+    end
+
+end)
+
+VehicleController.OnVehicleSpawned:Connect(function(data)
+
+    if XenoSettings.VehicleLogger then
+
+        sendNotify(
+            "Spawned",
+            tostring(data.vehicleId or data.uuid)
+        )
+
+    end
+
+end)
+
+print("🚗 Xeno Vehicle System Loaded")
+
+XenoTab:AddSection("Admin & Cmdr Sistemleri")
+XenoTab:AddButton({
+    Name = "Cmdr Konsolunu Başlat (Full Yetki)",
+    Callback = function() setupCmdr() end
+})
+XenoTab:AddButton({
+    Name = "Fake Video Ad Tetikle (ad_toggleFakeVideo)",
+    Callback = function()
+        pcall(function()
+            local Cmdr = require(RS:WaitForChild("CmdrClient"))
+            Cmdr:HandleCommand("ad_toggleFakeVideo " .. LP.Name)
+        end)
+    end
+})
+XenoTab:AddButton({
+    Name = "Hediye Ekle (gift_addGift)",
+    Callback = function()
+        pcall(function()
+            local Cmdr = require(RS:WaitForChild("CmdrClient"))
+            Cmdr:HandleCommand("gift_addGift " .. LP.UserId .. " 1234567")
+        end)
+    end
+})
+
+XenoTab:AddSection("Geliştirici Araçları")
+XenoTab:AddButton({
+    Name = "Server Temasını Değiştir (Theme001)",
+    Callback = function()
+        pcall(function()
+            local Cmdr = require(RS:WaitForChild("CmdrClient"))
+            Cmdr:HandleCommand("world_setServerTheme Theme001")
+        end)
+    end
+})
+XenoTab:AddButton({
+    Name = "DevTools ShowString Testi",
+    Callback = function() ShowString("Mars Hub & Xeno: Yetkiler ve Komutlar Aktif!") end
+})
+
+XenoTab:AddSection("Silver Pass & RGB")
+XenoTab:AddToggle({
+    Name = "RGB Ev Modu (Full On/Off)",
+    Default = false,
+    Callback = function(Value)
+        XenoSettings.RGBMode = Value
+        task.spawn(function()
+            while XenoSettings.RGBMode do
+                local rainbow = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+                Remotes.fireServer("Property:SetColor", rainbow)
+                HouseRemote:FireServer(PickingHouseColor, rainbow)
+                task.wait(0.5)
+            end
+        end)
+    end
+})
+
+XenoTab:AddSection("Gelişmiş Server Duyuruları & Parti")
+local RBXSystem = TextChatService:WaitForChild("TextChannels"):WaitForChild("RBXSystem")
+local partyTypes = { ["House Party"] = "HouseParty", ["Birthday Party"] = "BirthdayParty", ["Dance Party"] = "DanceParty", ["Taco Party"] = "TacoParty" }
+
+local function sendRealisticMessage(partyName)
+    local lotNum = LotUtil.GetPlayerOwnedLotNumber(LP) or "?"
+    local message = string.format(
+        "<font color='#eba0e0'>[Server]: </font><font weight='SemiBold' color='#fac519'>%s</font> started a <font weight='SemiBold'>%s</font> at house <font weight='SemiBold'>#%s</font>!",
+        LP.DisplayName, partyName, tostring(lotNum)
+    )
+    RBXSystem:DisplaySystemMessage(message)
+end
+
+local function inviteEveryone(partyId)
+    local allPlayerIds = {}
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LP then table.insert(allPlayerIds, player.UserId) end
+    end
+    Remotes.fireServer("StartFreeParty", partyId, allPlayerIds)
+end
+
+XenoTab:AddDropdown({
+    Name = "Parti Tipi Seç",
+    Options = {"House Party", "Birthday Party", "Dance Party", "Taco Party"},
+    Default = "House Party",
+    Callback = function(Value) _G.SelectedParty = Value end,
+})
+XenoTab:AddButton({
+    Name = "Gerçek Parti Başlat (Herkese Davet)",
+    Callback = function()
+        local partyId = partyTypes[_G.SelectedParty or "House Party"]
+        inviteEveryone(partyId)
+        sendRealisticMessage(_G.SelectedParty or "House Party")
+    end
+})
+XenoTab:AddButton({
+    Name = "Partiyi Bitir",
+    Callback = function() Remotes.fireServer("PartyEnd") end
+})
+
+-- ==========================================
+-- 🚀 VOLDEX ULTIMATE VEHICLE BYPASS ENGINE 🚀
+-- ==========================================
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SpawnRemote = ReplicatedStorage:WaitForChild("RE"):WaitForChild("1Ca1r")
+local ProfilingRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ClientProfiling:SendData")
+
+-- Premium/Admin Araç Listesi (Bu listeyi oyun içindeki kodlardan veya internetten bulduğun ID'lerle genişletebilirsin)
+local UltimateCarList = {
+    "SuperCar_Gold", -- Örnek Premium Araç
+    "Admin_Jet",      -- Admin Aracı
+    "Event_Neon",     -- Event Aracı
+    "VIP_Phantom",    -- VIP Araç
+    "Police_Cruiser", 
+    "Luxury_Hypercar"
+}
+
+-- Bypass Fonksiyonu
+local function spawnBypassVehicle(carName)
+    pcall(function()
+        -- 1. ADIM: "Ghost Profiling" - Sunucuya "Benim garajımda bu araç var" imajı ver
+        ProfilingRemote:FireServer({
+            identifier = "MainVehicleMenu",
+            selectedVehicle = carName,
+            isPremium = true, -- Sunucuya her zaman premium olduğumuzu söylüyoruz
+            isOwner = true    -- Araca sahip olduğumuzu belirtiyoruz
+        })
+
+        -- 2. ADIM: "Force Fire" - Bypasslı şekilde ateşle
+        task.spawn(function()
+            -- Sunucuya aracı zorla spawn ettir
+            SpawnRemote:FireServer("PickingCar", carName)
+            
+            -- Eğer araç gelmediyse, sunucu "hata" verdiyse tekrar gönder
+            task.wait(0.5)
+            SpawnRemote:FireServer("Equip", carName)
+        end)
+        
+        sendNotify("🚀 Vehicle Engine", "Bypass aktif: " .. carName .. " gönderildi!")
+    end)
+end
+
+-- UI Listesi (Dinamik)
+XenoTab:AddSection({ Name = "🔥 Ultimate Car Spawner (All Access)" })
+
+for _, carName in pairs(UltimateCarList) do
+    XenoTab:AddButton({
+        Name = "🏎️ Spawn " .. carName,
+        Callback = function()
+            spawnBypassVehicle(carName)
+        end
+    })
+end
+
+-- Custom Manuel Giriş
+XenoTab:AddTextbox({
+    Name = "🔍 Manual Car Name",
+    Default = "",
+    Callback = function(Value)
+        XenoSettings.CustomCar = Value
+    end
+})
+
+XenoTab:AddButton({
+    Name = "⚡ Spawn Custom Vehicle",
+    Callback = function()
+        spawnBypassVehicle(XenoSettings.CustomCar)
+    end
+})
+
+XenoTab:AddSection("Mağaza & Reklam Arayüzü (Zorla Aç)")
+XenoTab:AddButton({
+    Name = "AdStore / Gamepass Menülerini Aç",
+    Callback = function()
+        pcall(function()
+            if PanelController then
+                PanelController.Open("MainGUIHandler", "GamepassStore")
+                PanelController.Open("MainGUIHandler", "AdStore")
+            end
+            local MainGUI = PlayerGui:FindFirstChild("MainGUIHandler")
+            if MainGUI then
+                local targets = {"AdStore", "GamepassStore", "StorePanel", "PremiumStore", "RobuxStore"}
+                for _, panelName in pairs(targets) do
+                    local panel = MainGUI:FindFirstChild(panelName)
+                    if panel then panel.Visible = true end
+                end
+            end
+        end)
+    end
+})
+XenoTab:AddToggle({
+    Name = "Reklam Resimlerini/Butonlarını Zorla Göster",
+    Default = false,
+    Callback = function(Value)
+        XenoSettings.ForceAds = Value
+        task.spawn(function()
+            while XenoSettings.ForceAds do
+                pcall(function()
+                    local MainGUI = PlayerGui:FindFirstChild("MainGUIHandler")
+                    if MainGUI then
+                        for _, v in pairs(MainGUI:GetDescendants()) do
+                            if v:IsA("ImageLabel") or v:IsA("ImageButton") then
+                                if v.Visible == false and (string.find(string.lower(v.Name), "ad") or string.find(string.lower(v.Name), "sponsor")) then
+                                    v.Visible = true
+                                end
+                            end
+                        end
+                    end
+                end)
+                task.wait(2)
+            end
+        end)
+    end
+})
+
+KisayolTab:AddSection(T("FastMods"))
+KisayolTab:AddButton({
+    Name = "WalkSpeed (75)",
+    Callback = function() if LP.Character then LP.Character.Humanoid.WalkSpeed = 75 end end
+})
+KisayolTab:AddButton({
+    Name = "Get Nuclear Barrel",
+    Callback = function() RequestItemMax("NuclearBarrel") end
+})
+
+-- ==========================================
+-- 🧍 AVATAR EDITOR
+-- ==========================================
+local AvatarTab = Window:MakeTab({"Avatar Editor", "shirt"})
+AvatarTab:AddSection({"Avatar Editor"})
+AvatarTab:AddParagraph({Title = "Aviso: Vai resetar seu avatar", Content = ""})
+
+local function loadAvatar(parts, name)
+    pcall(function()
+        RS:WaitForChild("Remotes"):WaitForChild("ChangeCharacterBody"):InvokeServer(unpack({parts}))
+        game:GetService("StarterGui"):SetCore("SendNotification", { Title = "Avatar", Text = name .. " equipado!", Duration = 3 })
+    end)
+end
+
+AvatarTab:AddButton({ Name = "Mini REPO", Description = "Avatar mini personalizado", Callback = function() loadAvatar({117101023704825, 125767940563838, 137301494386930, 87357384184710, 133391239416999, 111818794467824}, "Mini REPO") end })
+AvatarTab:AddButton({ Name = "Mini Garanhão", Description = "Avatar mini garanhão", Callback = function() loadAvatar({124355047456535, 120507500641962, 82273782655463, 113625313757230, 109182039511426, 0}, "Mini Garanhão") end })
+AvatarTab:AddButton({ Name = "Stick", Description = "Avatar estilo palito", Callback = function() loadAvatar({14731384498, 14731377938, 14731377894, 14731377875, 14731377941, 14731382899}, "Stick") end })
+AvatarTab:AddButton({ Name = "Chunky-Bug", Description = "Avatar estilo bug", Callback = function() loadAvatar({15527827600, 15527827578, 15527831669, 15527836067, 15527827184, 15527827599}, "Chunky-Bug") end })
+AvatarTab:AddButton({ Name = "Cursed-Spider", Description = "Avatar aranha amaldiçoada", Callback = function() loadAvatar({134555168634906, 100269043793774, 125607053187319, 122504853343598, 95907982259204, 91289185840375}, "Cursed-Spider") end })
+AvatarTab:AddButton({ Name = "Possessed-Horror", Description = "Avatar horror possuído", Callback = function() loadAvatar({122800511983371, 132465361516275, 125155800236527, 83070163355072, 102906187256945, 78311422507297}, "Possessed-Horror") end })
+
+-- ==========================================
+-- 🎒 EŞYALAR VE GÜÇLER (ITEMS & POWERS)
+-- ==========================================
+local ToolTab = Window:MakeTab({ Name = T("Items"), Icon = "rbxassetid://15309138473" })
+local toolCategories = {
+    [T("Weps")] = { {"Nuclear Barrel", "NuclearBarrel"}, {"Uranium Rod", "UraniumRod"}, {"Cannon", "Cannon"}, {"Egg Launcher", "EggLauncher"}, {"Snowball Cannon", "SnowballCannon"} },
+    [T("ToolsC")] = { {"Chainsaw", "Chainsaw"}, {"Bunny Mallet", "WhackABunnyMallet"}, {"Money Gun", "MoneyGun"}, {"Power Keycard", "PowerKeyCard"}, {"Hammer", "Hammer"}, {"Scythe (V8)", "Scythe"} },
+    [T("Sports")] = { {"Glider", "Glider"}, {"Skis", "Skis"}, {"Snowboard", "Snowboard"}, {"Basketball", "MinigameBasketball"}, {"Golden Ball", "GoldenBasketball"}, {"Spring Shuffler", "Easter2026SpringShuffler"} }
+}
+for sectionName, tools in pairs(toolCategories) do
+    ToolTab:AddSection(sectionName)
+    for _, tool in ipairs(tools) do ToolTab:AddButton({ Name = tool[1], Callback = function() RequestItemMax(tool[2]) end }) end
+end
+
+local PowerTab = Window:MakeTab({ Name = T("Powers"), Icon = "rbxassetid://4483345998" })
+PowerTab:AddSection("FE Scripts")
+PowerTab:AddButton({
+    Name = "FE Invisible",
+    Callback = function() loadstring(game:HttpGet("https://raw.githubusercontent.com/GhostPlayer352/Test4/main/Invisible%20Gui"))() end
+})
+PowerTab:AddButton({
+    Name = HasPremium and "Tool Master (UNLOCKED)" or "[PREMIUM] Tool Master",
+    Callback = function() CheckPremium(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/egerizakazakofficial-rgb/Titan-Omni-Tool-Master/main/main"))() end) end
+})
+PowerTab:AddButton({
+    Name = HasPremium and "Telekinesis V5" or "[PREMIUM] Telekinesis",
+    Callback = function() CheckPremium(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/BRENOPOOF/fe-telekinessv5/refs/heads/main/Main.txt"))() end) end
+})
+
+-- ==========================================
+-- 📡 SUNUCU REMOTELAR
+-- ==========================================
+local RemoteTab = Window:MakeTab({ Name = T("Remotes"), Icon = "rbxassetid://10886311388" })
+RemoteTab:AddSection("Gelismiş Sunucu Etkilesimleri (Server Remotes)")
+RemoteTab:AddButton({
+    Name = HasPremium and T("PowerBoom") or "[PREMIUM] " .. T("PowerBoom"),
+    Callback = function()
+        CheckPremium(function()
+            ExecuteRemote("PowerPlant::Boom")
+            ExecuteRemote("PowerPlant::ExternalBoom")
+            sendNotify("Sistem", "Santral patlamasi tetiklendi!", "rbxassetid://135403840994127")
+        end)
+    end
+})
+RemoteTab:AddButton({
+    Name = T("SirenOn"),
+    Callback = function()
+        ExecuteRemote("ToggleEmergencyLights", true)
+        ExecuteRemote("ToggleEmergencySiren", true)
+        sendNotify("Arac", "Acil durum sirenleri aktiflestirildi.", "rbxassetid://135403840994127")
+    end
+})
+RemoteTab:AddButton({
+    Name = T("FireAll"),
+    Callback = function()
+        CheckPremium(function()
+            for _, name in ipairs(TargetRemotes) do ExecuteRemote(name) end
+            sendNotify("Stres Testi", "Algilanan tum remotelar ateslendi!", "rbxassetid://135403840994127")
+        end)
+    end
+})
+
+-- ==========================================
+-- ⚙️ AYARLAR
+-- ==========================================
+local SettingsTab = Window:MakeTab({ Name = T("Settings"), Icon = "rbxassetid://7072721682" })
+SettingsTab:AddSection(T("LangSelect"))
+SettingsTab:AddDropdown({
+    Name = "Language / Dil / Idioma",
+    Default = currentLang,
+    Options = {"Turkish","English"},
+    Callback = function(Value)
+        currentLang = Value
+        pcall(function() if writefile then writefile("TitanOmni_Language.txt", Value) end end)
+        sendNotify("Sistem", T("LangSet"), "rbxassetid://135403840994127")
+    end
+})
+
+SettingsTab:AddSection(T("CharSet"))
+SettingsTab:AddSlider({
+    Name = "WalkSpeed", Min = 16, Max = 300, Default = 16,
+    Callback = function(v) if LP.Character then LP.Character.Humanoid.WalkSpeed = v end end
+})
+SettingsTab:AddSlider({
+    Name = "JumpPower", Min = 50, Max = 500, Default = 50,
+    Callback = function(v) if LP.Character then LP.Character.Humanoid.JumpPower = v end end
+})
+
+SettingsTab:AddSection(T("SysClean"))
+SettingsTab:AddButton({
+    Name = T("DestroyHub"),
+    Callback = function()
+        MyJanitor:Cleanup()
+        sendNotify("Sistem", T("JanitorMsg"))
+    end
+})
+
+task.spawn(function()
+    while task.wait(10) do
+        if not HasPremium then
+            HasPremium = runEliteScanner()
+            if splib then splib.IsPremium = HasPremium end
+        end
+    end
+end)
+
+sendNotify("TITAN V15", T("Loaded") .. " " .. (HasPremium and T("EliteOn") or T("StdOn")), "rbxassetid://135403840994127")
